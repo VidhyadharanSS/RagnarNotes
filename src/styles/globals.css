@@ -311,3 +311,101 @@ html:not(.dark) {
   text-align: center;
   padding: 2rem 0;
 }
+
+/* ── Code block wrapper (Stage 3) ──────────────────────────── */
+
+.ragnar-prose .code-block-wrapper {
+  margin-bottom: 1.25em;
+  border-radius: 10px;
+  border: 1px solid var(--ragnar-border-subtle);
+  overflow: hidden;
+  background: var(--ragnar-bg-secondary);
+}
+
+.ragnar-prose .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5em 1em;
+  background: var(--ragnar-bg-tertiary);
+  border-bottom: 1px solid var(--ragnar-border-subtle);
+}
+
+.ragnar-prose .code-block-lang {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ragnar-text-muted);
+  font-family: var(--font-mono);
+}
+
+.ragnar-prose .code-copy-btn {
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--ragnar-text-muted);
+  background: var(--ragnar-bg-secondary);
+  border: 1px solid var(--ragnar-border-subtle);
+  border-radius: 4px;
+  padding: 0.25em 0.75em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ragnar-prose .code-copy-btn:hover {
+  color: var(--ragnar-text-primary);
+  background: var(--ragnar-bg-hover);
+  border-color: var(--ragnar-border);
+}
+
+.ragnar-prose .code-block-wrapper .code-block {
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* ── Task list checkboxes ── */
+
+.ragnar-prose .task-list-item {
+  list-style: none;
+  position: relative;
+  margin-left: -1.25em;
+}
+
+.ragnar-prose .task-checkbox {
+  font-size: 1em;
+  margin-right: 0.5em;
+}
+
+.ragnar-prose .task-checked {
+  text-decoration: line-through;
+  color: var(--ragnar-text-muted);
+}
+
+/* ── Wiki-link styles ── */
+
+.ragnar-prose .wiki-link {
+  color: var(--ragnar-accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ragnar-accent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ragnar-prose .wiki-link:hover {
+  color: var(--ragnar-accent-hover);
+  border-bottom-style: solid;
+}
+
+/* ── Selection color ── */
+
+::selection {
+  background: rgba(10, 132, 255, 0.2);
+}
+
+/* ── Caret color ── */
+
+textarea,
+input {
+  caret-color: var(--ragnar-accent);
+}

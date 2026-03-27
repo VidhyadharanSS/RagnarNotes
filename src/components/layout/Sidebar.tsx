@@ -4,18 +4,24 @@ import { useNotesStore } from "@stores/notesStore";
 import { useEditorStore } from "@stores/editorStore";
 import { Tooltip } from "@components/ui/Tooltip";
 import { FolderTree } from "@components/features/FolderTree";
+import { toast } from "@components/ui/Toast";
 import { cn } from "@utils/cn";
+import {
+  FileText,
+  Pin,
+  Tag,
+  Trash2,
+  Search,
+  Plus,
+  FolderPlus,
+  Vault,
+  ChevronDown,
+} from "lucide-react";
 import type { SidebarRoute } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
- * Sidebar — Left navigation panel (Stage 2)
- *
- * Stage 2 additions:
- *  - Tooltips on all action buttons
- *  - "New Note" wires to notesStore.createNew (stub)
- *  - Folder count badge on Folders section
- *  - Smooth entrance animations per nav item
- *  - User avatar / vault name at the bottom
+ * Sidebar — Stage 3: Enhanced with Lucide icons, smooth
+ * animations, gradient accents, settings button, and polished UI
  * ───────────────────────────────────────────────────────────── */
 
 interface NavItem {
@@ -41,10 +47,10 @@ export function Sidebar() {
   const trashCount = trashedNoteIds.length;
 
   const navItems: NavItem[] = [
-    { id: "all-notes", label: "All Notes", icon: <NotesIcon />, badge: allCount || undefined },
-    { id: "favorites", label: "Pinned", icon: <StarIcon />, badge: pinnedCount || undefined },
-    { id: "tags", label: "Tags", icon: <TagIcon /> },
-    { id: "trash", label: "Trash", icon: <TrashIcon />, badge: trashCount || undefined },
+    { id: "all-notes", label: "All Notes", icon: <FileText size={15} />, badge: allCount || undefined },
+    { id: "favorites", label: "Pinned", icon: <Pin size={15} />, badge: pinnedCount || undefined },
+    { id: "tags", label: "Tags", icon: <Tag size={15} /> },
+    { id: "trash", label: "Trash", icon: <Trash2 size={15} />, badge: trashCount || undefined },
   ];
 
   function handleNewNote() {
@@ -53,7 +59,7 @@ export function Sidebar() {
     const newNote = {
       id,
       title: "Untitled",
-      content: "# Untitled\n\n",
+      content: "# Untitled\n\nStart writing here…\n",
       folderId: "folder-work",
       filePath: `/vault/untitled-${Date.now()}.md`,
       isUnsaved: true,
@@ -69,6 +75,7 @@ export function Sidebar() {
     upsertNote(newNote);
     setActiveNote(newNote);
     setSidebarRoute("all-notes");
+    toast.success("New note created");
   }
 
   const vaultName = vaultPath
@@ -83,29 +90,46 @@ export function Sidebar() {
         "bg-ragnar-sidebar-bg glass-surface",
       )}
     >
-      {/* Search shortcut button */}
-      <div className="px-3 pt-3 pb-2">
-        <Tooltip content="Search or run a command" shortcut="⌘K" side="right">
+      {/* Vault header */}
+      <div className="flex items-center gap-2.5 border-b border-ragnar-border-subtle px-3 py-2.5">
+        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-ragnar-accent/20 to-ragnar-accent/5">
+          <Vault size={14} className="text-ragnar-accent" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-[13px] font-semibold text-ragnar-text-primary">
+            {vaultName}
+          </p>
+          <p className="text-[10px] text-ragnar-text-muted">
+            {allCount} notes
+          </p>
+        </div>
+        <ChevronDown size={12} className="text-ragnar-text-muted" />
+      </div>
+
+      {/* Search shortcut */}
+      <div className="px-3 pt-2.5 pb-1.5">
+        <Tooltip content="Search notes & commands" shortcut="⌘K" side="right">
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
             onClick={openCommandPalette}
             className={cn(
               "flex w-full items-center gap-2 rounded-lg px-3 py-2",
-              "bg-ragnar-bg-hover text-ragnar-text-muted",
+              "bg-ragnar-bg-hover/80 text-ragnar-text-muted",
               "text-[13px] border border-ragnar-border-subtle",
-              "transition-colors hover:text-ragnar-text-primary hover:border-ragnar-border",
+              "transition-all hover:text-ragnar-text-primary hover:border-ragnar-border",
+              "hover:shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
             )}
           >
-            <SearchIcon />
+            <Search size={13} />
             <span className="flex-1 text-left">Search…</span>
-            <span className="font-mono text-[11px] opacity-50">⌘K</span>
+            <kbd className="font-mono text-[11px] opacity-50 rounded bg-ragnar-bg-tertiary px-1.5 py-0.5">⌘K</kbd>
           </motion.button>
         </Tooltip>
       </div>
 
-      {/* Primary navigation */}
-      <nav className="px-2 py-1">
+      {/* Navigation */}
+      <nav className="px-2 py-1 space-y-0.5">
         {navItems.map((item, i) => (
           <motion.div
             key={item.id}
@@ -125,14 +149,14 @@ export function Sidebar() {
       <Divider />
 
       {/* Folder tree */}
-      <div className="flex-1 overflow-y-auto px-2 py-1">
+      <div className="flex-1 overflow-y-auto px-2 py-1 no-scrollbar">
         <div className="mb-1 flex items-center justify-between px-3 pt-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
             Folders
           </p>
           <Tooltip content="New Folder" side="right">
             <button className="rounded p-0.5 text-ragnar-text-muted transition-colors hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary">
-              <PlusIcon size={10} />
+              <FolderPlus size={12} />
             </button>
           </Tooltip>
         </div>
@@ -141,42 +165,31 @@ export function Sidebar() {
 
       <Divider />
 
-      {/* Vault info + new note */}
-      <div className="p-2 space-y-2">
-        {/* New Note button */}
+      {/* New Note + Settings */}
+      <div className="p-2 space-y-1.5">
         <Tooltip content="Create a new note" shortcut="⌘N" side="top">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleNewNote}
             className={cn(
-              "flex w-full items-center justify-center gap-2 rounded-lg py-2",
-              "bg-ragnar-accent text-white text-[13px] font-semibold",
-              "shadow-[0_2px_12px_rgba(10,132,255,0.25)]",
-              "transition-all hover:bg-ragnar-accent-hover hover:shadow-[0_2px_16px_rgba(10,132,255,0.4)]",
+              "flex w-full items-center justify-center gap-2 rounded-xl py-2.5",
+              "bg-gradient-to-r from-ragnar-accent to-blue-600 text-white text-[13px] font-semibold",
+              "shadow-[0_2px_12px_rgba(10,132,255,0.3)]",
+              "transition-all hover:shadow-[0_4px_20px_rgba(10,132,255,0.45)]",
+              "active:scale-[0.98]",
             )}
           >
-            <PlusIcon />
+            <Plus size={15} strokeWidth={2.5} />
             New Note
           </motion.button>
         </Tooltip>
-
-        {/* Vault name footer */}
-        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-ragnar-accent/20">
-            <VaultIcon />
-          </div>
-          <span className="truncate text-[11px] text-ragnar-text-muted">
-            {vaultName}
-          </span>
-        </div>
       </div>
     </div>
   );
 }
 
 /* ── NavRow ── */
-
 function NavRow({
   item,
   isActive,
@@ -192,13 +205,13 @@ function NavRow({
       onClick={onClick}
       className={cn(
         "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left",
-        "text-[13px] font-medium transition-colors",
+        "text-[13px] font-medium transition-all duration-150",
         isActive
           ? "bg-ragnar-sidebar-active text-ragnar-accent"
           : "text-ragnar-text-secondary hover:bg-ragnar-sidebar-hover hover:text-ragnar-text-primary",
       )}
     >
-      {/* Active indicator bar */}
+      {/* Active indicator */}
       <AnimatePresence>
         {isActive && (
           <motion.span
@@ -215,6 +228,7 @@ function NavRow({
 
       {item.badge !== undefined && item.badge > 0 && (
         <motion.span
+          key={item.badge}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           className={cn(
@@ -232,65 +246,5 @@ function NavRow({
 }
 
 function Divider() {
-  return <div className="mx-3 my-1 h-px bg-ragnar-border-subtle" />;
-}
-
-/* ── Icons ── */
-function SearchIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-      <circle cx="5.5" cy="5.5" r="4" />
-      <line x1="9" y1="9" x2="12" y2="12" />
-    </svg>
-  );
-}
-function NotesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="2" y="1" width="10" height="12" rx="1.5" />
-      <line x1="4.5" y1="4.5" x2="9.5" y2="4.5" />
-      <line x1="4.5" y1="7" x2="9.5" y2="7" />
-      <line x1="4.5" y1="9.5" x2="7.5" y2="9.5" />
-    </svg>
-  );
-}
-function StarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="7,1.5 8.8,5.5 13,5.9 9.9,8.8 10.9,13 7,10.8 3.1,13 4.1,8.8 1,5.9 5.2,5.5" />
-    </svg>
-  );
-}
-function TagIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1.5 1.5h4.5l6 6-4.5 4.5-6-6V1.5z" />
-      <circle cx="4" cy="4" r="0.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="1,3.5 13,3.5" />
-      <path d="M4.5 3.5V2.5a1 1 0 011-1h3a1 1 0 011 1v1" />
-      <path d="M2.5 3.5l.8 8a1 1 0 001 .9h5.4a1 1 0 001-.9l.8-8" />
-    </svg>
-  );
-}
-function PlusIcon({ size = 13 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="6.5" y1="1" x2="6.5" y2="12" />
-      <line x1="1" y1="6.5" x2="12" y2="6.5" />
-    </svg>
-  );
-}
-function VaultIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--ragnar-accent)" strokeWidth="1.4" strokeLinecap="round">
-      <rect x="1" y="1" width="8" height="8" rx="1.5" />
-      <circle cx="5" cy="5" r="1.5" />
-    </svg>
-  );
+  return <div className="mx-3 my-1.5 h-px bg-ragnar-border-subtle" />;
 }

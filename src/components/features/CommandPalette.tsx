@@ -8,17 +8,27 @@ import { useKeyboardShortcut } from "@hooks/useKeyboardShortcut";
 import { useClickOutside } from "@hooks/useClickOutside";
 import { useDebounce } from "@hooks/useDebounce";
 import { cn } from "@utils/cn";
+import {
+  Search,
+  FileText,
+  PanelLeft,
+  Pencil,
+  Eye,
+  Focus,
+  Columns2,
+  Moon,
+  Sun,
+  Monitor,
+  Plus,
+  Hash,
+  Clock,
+} from "lucide-react";
 import type { PaletteCommand, Note } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
- * CommandPalette — Global Cmd+K search & command launcher
- *
- * Features:
- *  - Instant fuzzy search across all notes (title + excerpt)
- *  - Built-in app commands (toggle sidebar, change mode, etc.)
- *  - Recent notes shown when query is empty
- *  - Keyboard navigation (↑↓ Enter Esc)
- *  - Framer Motion slide-down animation
+ * CommandPalette — Stage 3: Enhanced with Lucide icons,
+ * note metadata in results, tag search, theme commands, and
+ * improved animation
  * ───────────────────────────────────────────────────────────── */
 
 export function CommandPalette() {
@@ -26,7 +36,6 @@ export function CommandPalette() {
   const close = useAppStore((s) => s.closeCommandPalette);
   const open = useAppStore((s) => s.openCommandPalette);
 
-  // Global shortcut: Cmd+K
   useKeyboardShortcut("cmd+k", open);
   useKeyboardShortcut("Escape", close, isOpen);
 
@@ -37,14 +46,13 @@ export function CommandPalette() {
   );
 }
 
-/* ── Modal ── */
-
 function PaletteModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const debouncedQuery = useDebounce(query, 120);
+  const listRef = useRef<HTMLDivElement>(null);
+  const debouncedQuery = useDebounce(query, 100);
 
   const notes = useNotesStore((s) => s.notes);
   const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
@@ -56,71 +64,50 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
   const setMode = useEditorStore((s) => s.setMode);
   const toggleZen = useEditorStore((s) => s.toggleZen);
   const toggleSplitView = useEditorStore((s) => s.toggleSplitView);
+  const updatePreferences = useAppStore((s) => s.updatePreferences);
 
   useClickOutside(panelRef, onClose);
 
-  // Focus input on open
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
-  // Built-in commands
   const builtinCommands: PaletteCommand[] = [
-    {
-      id: "toggle-sidebar",
-      label: "Toggle Sidebar",
-      shortcut: "⌘/",
-      icon: "▤",
-      section: "view",
-      action: () => { toggleSidebar(); onClose(); },
-    },
-    {
-      id: "mode-edit",
-      label: "Edit Mode",
-      shortcut: "⌘E",
-      icon: "✏️",
-      section: "editor",
-      action: () => { setMode("edit"); onClose(); },
-    },
-    {
-      id: "mode-readonly",
-      label: "Preview Mode",
-      shortcut: "⌘P",
-      icon: "👁",
-      section: "editor",
-      action: () => { setMode("readonly"); onClose(); },
-    },
-    {
-      id: "mode-zen",
-      label: "Zen / Focus Mode",
-      shortcut: "⌘.",
-      icon: "🎯",
-      section: "view",
-      action: () => { toggleZen(); onClose(); },
-    },
-    {
-      id: "split-view",
-      label: "Toggle Split View",
-      icon: "⊞",
-      section: "view",
-      action: () => { toggleSplitView(); onClose(); },
-    },
+    { id: "toggle-sidebar", label: "Toggle Sidebar", shortcut: "⌘/", icon: "panel", section: "view", action: () => { toggleSidebar(); onClose(); } },
+    { id: "mode-edit", label: "Edit Mode", shortcut: "⌘E", icon: "pencil", section: "editor", action: () => { setMode("edit"); onClose(); } },
+    { id: "mode-readonly", label: "Preview Mode", shortcut: "⌘⇧P", icon: "eye", section: "editor", action: () => { setMode("readonly"); onClose(); } },
+    { id: "mode-zen", label: "Focus Mode", shortcut: "⌘.", icon: "focus", section: "view", action: () => { toggleZen(); onClose(); } },
+    { id: "split-view", label: "Split View", shortcut: "⌘⇧S", icon: "columns", section: "view", action: () => { toggleSplitView(); onClose(); } },
+    { id: "theme-dark", label: "Theme: Dark", icon: "moon", section: "system", action: () => { updatePreferences({ theme: "dark" }); onClose(); } },
+    { id: "theme-light", label: "Theme: Light", icon: "sun", section: "system", action: () => { updatePreferences({ theme: "light" }); onClose(); } },
+    { id: "theme-system", label: "Theme: System", icon: "monitor", section: "system", action: () => { updatePreferences({ theme: "system" }); onClose(); } },
   ];
 
-  // Note search results
+  const commandIconMap: Record<string, React.ReactNode> = {
+    panel: <PanelLeft size={14} />,
+    pencil: <Pencil size={14} />,
+    eye: <Eye size={14} />,
+    focus: <Focus size={14} />,
+    columns: <Columns2 size={14} />,
+    moon: <Moon size={14} />,
+    sun: <Sun size={14} />,
+    monitor: <Monitor size={14} />,
+  };
+
+  // Note search
   const noteResults: Note[] = debouncedQuery
     ? Object.values(notes)
         .filter(
           (n) =>
             !trashedNoteIds.includes(n.id) &&
             (n.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-              n.content.toLowerCase().includes(debouncedQuery.toLowerCase())),
+              n.content.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+              n.frontmatter.tags.some((t) =>
+                t.toLowerCase().includes(debouncedQuery.toLowerCase()),
+              )),
         )
         .slice(0, 8)
-    : recentNoteIds
-        .map((id) => notes[id])
-        .filter(Boolean)
-        .slice(0, 5);
+    : recentNoteIds.map((id) => notes[id]).filter(Boolean).slice(0, 5);
 
   // Command filter
   const filteredCommands = debouncedQuery
@@ -135,16 +122,22 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
 
   const items: PaletteItem[] = [
     ...noteResults.map((note) => ({ kind: "note" as const, note })),
-    ...filteredCommands.map((command) => ({
-      kind: "command" as const,
-      command,
-    })),
+    ...filteredCommands.map((command) => ({ kind: "command" as const, command })),
   ];
 
-  // Clamp selection
   useEffect(() => {
     setSelectedIdx(0);
   }, [debouncedQuery]);
+
+  // Auto-scroll selected item into view
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const selected = list.children[selectedIdx] as HTMLElement;
+    if (selected) {
+      selected.scrollIntoView({ block: "nearest" });
+    }
+  }, [selectedIdx]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -179,58 +172,60 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
       />
 
       {/* Panel */}
       <motion.div
         key="panel"
         ref={panelRef}
-        initial={{ opacity: 0, scale: 0.97, y: -12 }}
+        initial={{ opacity: 0, scale: 0.97, y: -16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: -12 }}
-        transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+        exit={{ opacity: 0, scale: 0.97, y: -16 }}
+        transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
         className={cn(
-          "fixed left-1/2 top-[15vh] z-[101] w-full max-w-[600px]",
+          "fixed left-1/2 top-[12vh] z-[101] w-full max-w-[620px]",
           "-translate-x-1/2",
-          "rounded-xl border border-ragnar-border bg-ragnar-bg-secondary/90",
-          "glass-surface shadow-[0_24px_80px_rgba(0,0,0,0.6)]",
+          "rounded-2xl border border-ragnar-border bg-ragnar-bg-secondary/95",
+          "glass-surface shadow-[0_24px_80px_rgba(0,0,0,0.55)]",
           "overflow-hidden",
         )}
       >
         {/* Search input */}
         <div className="flex items-center gap-3 border-b border-ragnar-border-subtle px-4 py-3.5">
-          <span className="flex-shrink-0 text-ragnar-text-muted">
-            <SearchIcon />
-          </span>
+          <Search size={16} className="flex-shrink-0 text-ragnar-text-muted" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search notes or type a command…"
+            placeholder="Search notes, tags, or type a command…"
             className={cn(
               "flex-1 bg-transparent text-[14px] text-ragnar-text-primary outline-none",
               "placeholder:text-ragnar-text-muted",
             )}
           />
-          <kbd className="rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[11px] text-ragnar-text-muted">
+          <kbd className="rounded-md bg-ragnar-bg-tertiary px-2 py-0.5 text-[11px] font-medium text-ragnar-text-muted">
             ESC
           </kbd>
         </div>
 
         {/* Results */}
-        <div className="max-h-[440px] overflow-y-auto py-1.5">
+        <div ref={listRef} className="max-h-[420px] overflow-y-auto py-1.5">
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[13px] text-ragnar-text-muted">
-              No results for "{query}"
+            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+              <Search size={24} className="text-ragnar-text-muted opacity-40" />
+              <p className="text-[13px] text-ragnar-text-muted">
+                No results for "{query}"
+              </p>
             </div>
           ) : (
             <>
               {noteResults.length > 0 && (
                 <SectionHeader
                   label={debouncedQuery ? "Notes" : "Recent"}
+                  icon={debouncedQuery ? <FileText size={11} /> : <Clock size={11} />}
                 />
               )}
               {noteResults.map((note, idx) => (
@@ -247,12 +242,13 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
               ))}
 
               {filteredCommands.length > 0 && (
-                <SectionHeader label="Commands" />
+                <SectionHeader label="Commands" icon={<Hash size={11} />} />
               )}
               {filteredCommands.map((cmd, idx) => (
                 <PaletteCommandRow
                   key={cmd.id}
                   command={cmd}
+                  icon={commandIconMap[cmd.icon ?? ""] ?? <Plus size={14} />}
                   isSelected={selectedIdx === noteResults.length + idx}
                   onSelect={cmd.action}
                 />
@@ -261,11 +257,15 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Footer hint */}
-        <div className="flex items-center gap-3 border-t border-ragnar-border-subtle px-4 py-2">
+        {/* Footer hints */}
+        <div className="flex items-center gap-4 border-t border-ragnar-border-subtle px-4 py-2">
           <Hint keys={["↑", "↓"]} label="navigate" />
           <Hint keys={["↵"]} label="select" />
           <Hint keys={["Esc"]} label="close" />
+          <div className="flex-1" />
+          <span className="text-[10px] text-ragnar-text-muted opacity-50">
+            {items.length} results
+          </span>
         </div>
       </motion.div>
     </>
@@ -274,11 +274,14 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
 
 /* ── Sub-components ── */
 
-function SectionHeader({ label }: { label: string }) {
+function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode }) {
   return (
-    <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
-      {label}
-    </p>
+    <div className="flex items-center gap-1.5 px-4 pb-1 pt-2.5">
+      {icon && <span className="text-ragnar-text-muted">{icon}</span>}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
+        {label}
+      </p>
+    </div>
   );
 }
 
@@ -303,24 +306,29 @@ function PaletteNoteRow({
       onClick={onSelect}
       className={cn(
         "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
-        isSelected
-          ? "bg-ragnar-accent/15"
-          : "hover:bg-ragnar-bg-hover",
+        isSelected ? "bg-ragnar-accent/12" : "hover:bg-ragnar-bg-hover",
       )}
     >
-      <span className="flex-shrink-0 text-ragnar-text-muted">
-        <NoteIcon />
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-ragnar-bg-tertiary text-ragnar-text-muted">
+        <FileText size={14} />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="truncate text-[13px] font-medium text-ragnar-text-primary">
-          {note.title || "Untitled"}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-[13px] font-medium text-ragnar-text-primary">
+            {note.title || "Untitled"}
+          </p>
+          {note.frontmatter.tags.length > 0 && (
+            <span className="rounded-full bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[9px] text-ragnar-text-muted">
+              #{note.frontmatter.tags[0]}
+            </span>
+          )}
+        </div>
         {excerpt && (
           <p className="truncate text-[11px] text-ragnar-text-muted">{excerpt}</p>
         )}
       </div>
       {isSelected && (
-        <span className="flex-shrink-0 text-[11px] text-ragnar-text-muted">↵</span>
+        <kbd className="flex-shrink-0 rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[10px] text-ragnar-text-muted">↵</kbd>
       )}
     </button>
   );
@@ -328,10 +336,12 @@ function PaletteNoteRow({
 
 function PaletteCommandRow({
   command,
+  icon,
   isSelected,
   onSelect,
 }: {
   command: PaletteCommand;
+  icon: React.ReactNode;
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -340,17 +350,17 @@ function PaletteCommandRow({
       onClick={onSelect}
       className={cn(
         "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
-        isSelected ? "bg-ragnar-accent/15" : "hover:bg-ragnar-bg-hover",
+        isSelected ? "bg-ragnar-accent/12" : "hover:bg-ragnar-bg-hover",
       )}
     >
-      <span className="flex-shrink-0 w-4 text-center text-[14px]">
-        {command.icon ?? "⚡"}
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-ragnar-bg-tertiary text-ragnar-text-muted">
+        {icon}
       </span>
       <span className="flex-1 text-[13px] font-medium text-ragnar-text-primary">
         {command.label}
       </span>
       {command.shortcut && (
-        <kbd className="rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 font-mono text-[11px] text-ragnar-text-muted">
+        <kbd className="rounded-md bg-ragnar-bg-tertiary px-2 py-0.5 font-mono text-[11px] text-ragnar-text-muted">
           {command.shortcut}
         </kbd>
       )}
@@ -371,25 +381,5 @@ function Hint({ keys, label }: { keys: string[]; label: string }) {
       ))}
       <span className="ml-0.5 text-[11px] text-ragnar-text-muted">{label}</span>
     </div>
-  );
-}
-
-/* ── Icons ── */
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-      <circle cx="6" cy="6" r="4.5" />
-      <line x1="10" y1="10" x2="13" y2="13" />
-    </svg>
-  );
-}
-function NoteIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="2" y="1" width="9" height="11" rx="1.5" />
-      <line x1="4" y1="4.5" x2="9" y2="4.5" />
-      <line x1="4" y1="6.5" x2="9" y2="6.5" />
-      <line x1="4" y1="8.5" x2="7" y2="8.5" />
-    </svg>
   );
 }

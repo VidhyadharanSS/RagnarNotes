@@ -7,17 +7,32 @@ import { useSearchStore } from "@stores/searchStore";
 import { ContextMenu, type ContextMenuItem } from "@components/ui/ContextMenu";
 import { cn } from "@utils/cn";
 import { formatRelativeTime, truncate } from "@utils/format";
+import {
+  Pin,
+  Trash2,
+  RotateCcw,
+  FileText,
+  Search as SearchIcon,
+  PinOff,
+  X,
+  SortAsc,
+  SortDesc,
+} from "lucide-react";
 import type { Note } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
- * NoteList — Middle panel (Stage 2)
+ * NoteList — Stage 3: Enhanced middle panel
  *
- * Stage 2 additions:
- *  - Right-click context menu per note (pin, trash, rename)
- *  - Hover actions (pin toggle, trash)
- *  - Folder badge under note title
- *  - Smooth layout animations (layoutId)
+ * Enhancements:
+ *  - Sort toggle (date / title)
+ *  - Lucide icons everywhere
+ *  - Smooth stagger animation on notes
+ *  - Improved note card with gradient hover
+ *  - Reading time in card
+ *  - Better empty states
  * ───────────────────────────────────────────────────────────── */
+
+type SortMode = "date" | "title";
 
 export function NoteList() {
   const sidebarRoute = useAppStore((s) => s.sidebarRoute);
@@ -26,6 +41,7 @@ export function NoteList() {
   const pinnedNoteIds = useNotesStore((s) => s.pinnedNoteIds);
   const activeNoteId = useEditorStore((s) => s.activeNoteId);
   const query = useSearchStore((s) => s.query);
+  const [sortMode, setSortMode] = useState<SortMode>("date");
 
   const allNotes = Object.values(notes);
 
@@ -53,6 +69,7 @@ export function NoteList() {
       const aPinned = pinnedNoteIds.includes(a.id) ? 1 : 0;
       const bPinned = pinnedNoteIds.includes(b.id) ? 1 : 0;
       if (bPinned !== aPinned) return bPinned - aPinned;
+      if (sortMode === "title") return a.title.localeCompare(b.title);
       return (
         new Date(b.frontmatter.updatedAt).getTime() -
         new Date(a.frontmatter.updatedAt).getTime()
@@ -77,25 +94,36 @@ export function NoteList() {
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-ragnar-border-subtle px-4 py-3">
-        <h2 className="text-[13px] font-semibold text-ragnar-text-primary">
+      <div className="flex items-center justify-between border-b border-ragnar-border-subtle px-4 py-2.5">
+        <h2 className="text-[13px] font-bold text-ragnar-text-primary">
           {headings[sidebarRoute] ?? "Notes"}
         </h2>
-        <motion.span
-          key={filteredNotes.length}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-[11px] text-ragnar-text-muted"
-        >
-          {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"}
-        </motion.span>
+        <div className="flex items-center gap-1.5">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setSortMode(sortMode === "date" ? "title" : "date")}
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-ragnar-text-muted transition-colors hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary"
+            title={`Sort by ${sortMode === "date" ? "title" : "date"}`}
+          >
+            {sortMode === "date" ? <SortDesc size={11} /> : <SortAsc size={11} />}
+            {sortMode === "date" ? "Recent" : "A–Z"}
+          </motion.button>
+          <motion.span
+            key={filteredNotes.length}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-full bg-ragnar-bg-tertiary px-2 py-0.5 text-[10px] font-semibold text-ragnar-text-muted"
+          >
+            {filteredNotes.length}
+          </motion.span>
+        </div>
       </div>
 
-      {/* Search input */}
+      {/* Search */}
       <NoteListSearch />
 
-      {/* Note items */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Notes */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
         <AnimatePresence initial={false}>
           {filteredNotes.length === 0 ? (
             <EmptyState route={sidebarRoute} hasQuery={!!query} />
@@ -118,7 +146,6 @@ export function NoteList() {
 }
 
 /* ── NoteItem ── */
-
 function NoteItem({
   note,
   isActive,
@@ -155,49 +182,19 @@ function NoteItem({
 
   const contextItems: ContextMenuItem[] = isTrashed
     ? [
-        {
-          id: "restore",
-          label: "Restore Note",
-          icon: <RestoreIcon />,
-          action: () => restoreNote(note.id),
-        },
-        {
-          id: "sep",
-          label: "",
-          separator: true,
-          action: () => {},
-        },
-        {
-          id: "delete",
-          label: "Delete Permanently",
-          icon: <TrashIcon />,
-          danger: true,
-          action: () => deleteNote(note.id),
-        },
+        { id: "restore", label: "Restore Note", icon: <RotateCcw size={13} />, action: () => restoreNote(note.id) },
+        { id: "sep", label: "", separator: true, action: () => {} },
+        { id: "delete", label: "Delete Permanently", icon: <Trash2 size={13} />, danger: true, action: () => deleteNote(note.id) },
       ]
     : [
-        {
-          id: "pin",
-          label: isPinned ? "Unpin Note" : "Pin Note",
-          icon: <PinIcon />,
-          action: () => pinNote(note.id, !isPinned),
-        },
-        {
-          id: "sep",
-          label: "",
-          separator: true,
-          action: () => {},
-        },
-        {
-          id: "trash",
-          label: "Move to Trash",
-          icon: <TrashIcon />,
-          danger: true,
-          action: () => trashNote(note.id),
-        },
+        { id: "pin", label: isPinned ? "Unpin" : "Pin Note", icon: isPinned ? <PinOff size={13} /> : <Pin size={13} />, action: () => pinNote(note.id, !isPinned) },
+        { id: "sep", label: "", separator: true, action: () => {} },
+        { id: "trash", label: "Move to Trash", icon: <Trash2 size={13} />, danger: true, action: () => trashNote(note.id) },
       ];
 
   const folderName = note.folderId ? folders[note.folderId]?.name : null;
+  const wordCount = note.content.split(/\s+/).filter(Boolean).length;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   const excerpt = note.content
     ? truncate(
@@ -207,7 +204,7 @@ function NoteItem({
           .replace(/[*_`[\]>]/g, "")
           .replace(/\n+/g, " ")
           .trim(),
-        110,
+        100,
       )
     : "No content yet…";
 
@@ -218,34 +215,28 @@ function NoteItem({
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4, height: 0 }}
-        transition={{ duration: 0.15, delay: Math.min(index * 0.025, 0.1) }}
+        transition={{ duration: 0.15, delay: Math.min(index * 0.02, 0.08) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={cn(
           "group relative cursor-pointer border-b border-ragnar-border-subtle px-4 py-3",
-          "transition-colors",
+          "transition-all duration-150",
           isActive
             ? "bg-ragnar-accent/8 border-l-2 border-l-ragnar-accent"
-            : "hover:bg-ragnar-bg-hover",
+            : "border-l-2 border-l-transparent hover:bg-ragnar-bg-hover hover:border-l-ragnar-text-muted/30",
         )}
       >
         {/* Title row */}
         <div className="mb-1 flex items-center gap-1.5">
           {isPinned && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="text-ragnar-accent opacity-70"
-            >
-              <PinIcon size={9} />
-            </motion.span>
+            <Pin size={10} className="flex-shrink-0 text-ragnar-accent rotate-45" />
           )}
           <h3
             className={cn(
               "flex-1 truncate text-[13px] font-semibold leading-tight",
-              "text-ragnar-text-primary",
+              isActive ? "text-ragnar-accent" : "text-ragnar-text-primary",
             )}
           >
             {note.title || "Untitled"}
@@ -266,20 +257,18 @@ function NoteItem({
                   onClick={(e) => { e.stopPropagation(); pinNote(note.id, !isPinned); }}
                   className={cn(
                     "rounded p-1 transition-colors",
-                    isPinned
-                      ? "text-ragnar-accent"
-                      : "text-ragnar-text-muted hover:text-ragnar-accent",
+                    isPinned ? "text-ragnar-accent" : "text-ragnar-text-muted hover:text-ragnar-accent",
                   )}
                   title={isPinned ? "Unpin" : "Pin"}
                 >
-                  <PinIcon size={10} />
+                  {isPinned ? <PinOff size={11} /> : <Pin size={11} />}
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); trashNote(note.id); }}
                   className="rounded p-1 text-ragnar-text-muted transition-colors hover:text-red-400"
-                  title="Move to Trash"
+                  title="Trash"
                 >
-                  <TrashIcon />
+                  <Trash2 size={11} />
                 </button>
               </motion.div>
             )}
@@ -291,13 +280,16 @@ function NoteItem({
           {excerpt}
         </p>
 
-        {/* Footer: date + folder + tags */}
+        {/* Footer: date + folder + reading time + tags */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-ragnar-text-muted">
+          <span className="text-[10px] text-ragnar-text-muted">
             {formatRelativeTime(note.frontmatter.updatedAt)}
           </span>
+          <span className="text-[10px] text-ragnar-text-muted">
+            · {readingTime}m read
+          </span>
           {folderName && (
-            <span className="rounded-full bg-ragnar-accent/10 px-2 py-0.5 text-[10px] text-ragnar-accent/70">
+            <span className="rounded-full bg-ragnar-accent/8 px-2 py-0.5 text-[10px] text-ragnar-accent/70">
               {folderName}
             </span>
           )}
@@ -312,7 +304,6 @@ function NoteItem({
         </div>
       </motion.div>
 
-      {/* Context menu */}
       {contextMenu && (
         <ContextMenu
           items={contextItems}
@@ -331,20 +322,8 @@ function NoteListSearch() {
 
   return (
     <div className="border-b border-ragnar-border-subtle px-3 py-2">
-      <div className="flex items-center gap-2 rounded-md bg-ragnar-bg-hover px-3 py-1.5">
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          className="flex-shrink-0 text-ragnar-text-muted"
-        >
-          <circle cx="5" cy="5" r="3.5" />
-          <line x1="8" y1="8" x2="11" y2="11" />
-        </svg>
+      <div className="flex items-center gap-2 rounded-lg bg-ragnar-bg-hover/80 px-3 py-1.5 transition-all focus-within:ring-1 focus-within:ring-ragnar-accent/30">
+        <SearchIcon size={12} className="flex-shrink-0 text-ragnar-text-muted" />
         <input
           type="text"
           value={query}
@@ -362,9 +341,9 @@ function NoteListSearch() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.7 }}
               onClick={() => setQuery("")}
-              className="rounded-full bg-ragnar-bg-tertiary p-0.5 text-[11px] text-ragnar-text-muted hover:text-ragnar-text-primary"
+              className="rounded-full p-0.5 text-ragnar-text-muted hover:text-ragnar-text-primary hover:bg-ragnar-bg-tertiary"
             >
-              ×
+              <X size={12} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -373,53 +352,46 @@ function NoteListSearch() {
   );
 }
 
-/* ── Empty State ── */
+/* ── Empty States ── */
 function EmptyState({ route, hasQuery }: { route: string; hasQuery: boolean }) {
-  const messages: Record<string, { title: string; body: string; emoji: string }> = {
-    "all-notes": { title: "No notes yet", body: "Create your first note to get started.", emoji: "📝" },
-    favorites: { title: "No pinned notes", body: "Pin notes to find them quickly.", emoji: "📌" },
-    tags: { title: "No tags yet", body: "Add tags via frontmatter.", emoji: "🏷️" },
-    trash: { title: "Trash is empty", body: "Deleted notes appear here.", emoji: "🗑️" },
+  const messages: Record<string, { title: string; body: string; icon: React.ReactNode }> = {
+    "all-notes": {
+      title: "No notes yet",
+      body: "Create your first note to get started",
+      icon: <FileText size={28} className="text-ragnar-text-muted" />,
+    },
+    favorites: {
+      title: "No pinned notes",
+      body: "Pin notes to find them quickly",
+      icon: <Pin size={28} className="text-ragnar-text-muted" />,
+    },
+    tags: {
+      title: "No tags yet",
+      body: "Add tags via YAML frontmatter",
+      icon: <></>,
+    },
+    trash: {
+      title: "Trash is empty",
+      body: "Deleted notes appear here",
+      icon: <Trash2 size={28} className="text-ragnar-text-muted" />,
+    },
   };
+
   const msg = hasQuery
-    ? { title: "No results", body: "Try a different search term.", emoji: "🔍" }
-    : (messages[route] ?? { title: "Empty", body: "", emoji: "📄" });
+    ? { title: "No results", body: "Try a different search term", icon: <SearchIcon size={28} className="text-ragnar-text-muted" /> }
+    : (messages[route] ?? { title: "Empty", body: "", icon: <FileText size={28} className="text-ragnar-text-muted" /> });
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex flex-col items-center justify-center py-16 px-6 text-center gap-2"
+      className="flex flex-col items-center justify-center py-20 px-6 text-center gap-3"
     >
-      <span className="text-3xl">{msg.emoji}</span>
-      <p className="text-[13px] font-medium text-ragnar-text-secondary">{msg.title}</p>
-      <p className="text-[12px] text-ragnar-text-muted">{msg.body}</p>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ragnar-bg-tertiary/50">
+        {msg.icon}
+      </div>
+      <p className="text-[13px] font-semibold text-ragnar-text-secondary">{msg.title}</p>
+      <p className="text-[12px] text-ragnar-text-muted max-w-[200px]">{msg.body}</p>
     </motion.div>
-  );
-}
-
-/* ── Icons ── */
-function PinIcon({ size = 10 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 10 10" fill="currentColor">
-      <path d="M7 0H3v4L1 6h3v4l1 0 1 0V6h3L7 4V0z" />
-    </svg>
-  );
-}
-function TrashIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-      <polyline points="1,2.5 10,2.5" />
-      <path d="M3.5 2.5V2a1 1 0 011-1h2a1 1 0 011 1v.5" />
-      <path d="M2 2.5l.6 6.5a1 1 0 001 .9h3.8a1 1 0 001-.9L9 2.5" />
-    </svg>
-  );
-}
-function RestoreIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 5.5a4.5 4.5 0 109-0" />
-      <polyline points="1,2.5 1,5.5 4,5.5" />
-    </svg>
   );
 }

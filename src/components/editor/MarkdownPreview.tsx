@@ -1,111 +1,104 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useEditorStore } from "@stores/editorStore";
 import { cn } from "@utils/cn";
+import { Marked } from "marked";
+import hljs from "highlight.js";
 
 /* ─────────────────────────────────────────────────────────────
- * MarkdownPreview — Read-only rendered Markdown view
+ * MarkdownPreview — Full-featured rendered Markdown view (Stage 3)
  *
- * Stage 3 will integrate a full Markdown parser (marked / remark).
- * This version renders a styled HTML approximation using a
- * lightweight inline parser — sufficient for Stage 1/2 scaffold.
- *
- * The prose classes below produce flawless typography that rivals
- * Apple Notes and Bear.
+ * Powered by `marked` + `highlight.js` for:
+ *  - Proper GFM rendering (tables, task lists, strikethrough)
+ *  - Syntax-highlighted code blocks (150+ languages)
+ *  - Wiki-link rendering [[target|alias]]
+ *  - Copy button on code blocks
+ *  - Beautiful typography (ragnar-prose)
  * ───────────────────────────────────────────────────────────── */
+
+const marked = new Marked({
+  gfm: true,
+  breaks: true,
+});
+
+marked.use({
+  renderer: {
+    code({ text, lang }: { text: string; lang?: string }) {
+      const language = lang && hljs.getLanguage(lang) ? lang : "plaintext";
+      const highlighted = hljs.highlight(text, { language }).value;
+      return `
+        <div class="code-block-wrapper group relative">
+          <div class="code-block-header">
+            <span class="code-block-lang">${language}</span>
+            <button class="code-copy-btn" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(text)}'));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+          </div>
+          <pre class="code-block"><code class="hljs language-${language}">${highlighted}</code></pre>
+        </div>
+      `;
+    },
+
+    link({ href, text }: { href: string; text: string }) {
+      if (href.startsWith("wiki:")) {
+        const target = href.replace("wiki:", "");
+        return `<a class="wiki-link" data-target="${target}">${text}</a>`;
+      }
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    },
+
+    image({ href, title, text }: { href: string; title: string | null; text: string }) {
+      const titleAttr = title ? ` title="${title}"` : "";
+      return `<img src="${href}" alt="${text}"${titleAttr} loading="lazy" class="rounded-lg" />`;
+    },
+  },
+});
+
+function preprocessWikiLinks(md: string): string {
+  return md.replace(
+    /\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g,
+    (_, target, alias) => `[${alias ?? target}](wiki:${target})`,
+  );
+}
+
+function stripFrontmatter(md: string): string {
+  return md.replace(/^---[\s\S]*?---\n?/, "");
+}
 
 export function MarkdownPreview() {
   const draftContent = useEditorStore((s) => s.draftContent);
   const mode = useEditorStore((s) => s.mode);
   const isZen = mode === "zen";
 
-  const renderedHtml = useMemo(
-    () => renderMarkdown(draftContent),
-    [draftContent],
-  );
+  const renderedHtml = useMemo(() => {
+    if (!draftContent.trim()) {
+      return '<div class="empty-state"><p>Nothing to preview yet…</p><p style="font-size:0.75em;margin-top:0.5em;opacity:0.5">Start writing in edit mode</p></div>';
+    }
+    const processed = preprocessWikiLinks(stripFrontmatter(draftContent));
+    return marked.parse(processed) as string;
+  }, [draftContent]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const wikiLink = target.closest(".wiki-link") as HTMLElement;
+    if (wikiLink) {
+      e.preventDefault();
+      const noteTarget = wikiLink.dataset.target;
+      if (noteTarget) {
+        console.log("Wiki-link clicked:", noteTarget);
+      }
+    }
+  }, []);
 
   return (
     <div
-      className={cn(
-        "flex-1 overflow-y-auto",
-        isZen ? "flex justify-center" : "",
-      )}
+      className={cn("flex-1 overflow-y-auto", isZen ? "flex justify-center" : "")}
+      onClick={handleClick}
     >
       <div
         className={cn(
-          "ragnar-prose px-12 py-8",
+          "ragnar-prose animate-fade-in px-12 py-8",
           isZen && "max-w-[720px] w-full",
         )}
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: content is user's own markdown
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
     </div>
   );
-}
-
-/* ── Minimal Markdown → HTML renderer (Stage 3 will replace with remark) ── */
-
-function renderMarkdown(md: string): string {
-  if (!md.trim()) {
-    return '<p class="empty-state">Nothing to preview yet…</p>';
-  }
-
-  let html = md
-    // Strip YAML frontmatter
-    .replace(/^---[\s\S]*?---\n?/, "")
-    // Fenced code blocks
-    .replace(
-      /```(\w*)\n([\s\S]*?)```/g,
-      (_, lang, code) =>
-        `<pre class="code-block"><code class="language-${lang || "text"}">${escapeHtml(code.trim())}</code></pre>`,
-    )
-    // Inline code
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Headings
-    .replace(/^#{6}\s+(.+)$/gm, "<h6>$1</h6>")
-    .replace(/^#{5}\s+(.+)$/gm, "<h5>$1</h5>")
-    .replace(/^#{4}\s+(.+)$/gm, "<h4>$1</h4>")
-    .replace(/^#{3}\s+(.+)$/gm, "<h3>$1</h3>")
-    .replace(/^#{2}\s+(.+)$/gm, "<h2>$1</h2>")
-    .replace(/^#{1}\s+(.+)$/gm, "<h1>$1</h1>")
-    // Bold + italic
-    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/__(.+?)__/g, "<strong>$1</strong>")
-    .replace(/_(.+?)_/g, "<em>$1</em>")
-    // Strikethrough
-    .replace(/~~(.+?)~~/g, "<del>$1</del>")
-    // Blockquote
-    .replace(/^>\s+(.+)$/gm, "<blockquote>$1</blockquote>")
-    // Horizontal rule
-    .replace(/^---$/gm, "<hr>")
-    // Unordered list items
-    .replace(/^[-*+]\s+(.+)$/gm, "<li>$1</li>")
-    // Ordered list items
-    .replace(/^\d+\.\s+(.+)$/gm, "<oli>$1</oli>")
-    // Links
-    .replace(/\[([^\]]+)]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Images
-    .replace(/!\[([^\]]*?)]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
-    // Wiki links
-    .replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (_, target, alias) =>
-      `<a class="wiki-link" data-target="${target}">${alias ?? target}</a>`,
-    )
-    // Paragraphs: wrap bare lines
-    .replace(/^(?!<[a-z]|$)(.+)$/gm, "<p>$1</p>")
-    // Wrap consecutive <li>
-    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-    .replace(/(<oli>.*<\/oli>\n?)+/g, (m) =>
-      `<ol>${m.replace(/<\/?oli>/g, (t) => t.replace("oli", "li"))}</ol>`,
-    );
-
-  return html;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
