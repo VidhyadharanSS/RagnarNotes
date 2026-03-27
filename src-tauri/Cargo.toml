@@ -1,0 +1,47 @@
+[package]
+name = "ragnar-notes"
+version = "0.1.0"
+description = "Ragnar Notes — A sleek, high-performance macOS note-taking app"
+authors = ["Vidhyadharan SS"]
+license = "MIT"
+repository = "https://github.com/VidhyadharanSS/RagnarNotes"
+edition = "2021"
+rust-version = "1.70"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "ragnar_notes_lib"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.6", features = [
+  "dialog-open",
+  "dialog-save",
+  "fs-all",
+  "path-all",
+  "shell-open",
+  "window-maximize",
+  "window-minimize",
+  "window-close",
+  "window-start-dragging",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1.8", features = ["v4"] }
+walkdir = "2.5"
+gray_matter = "0.2"      # YAML frontmatter parsing
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.10"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
