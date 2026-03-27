@@ -16,12 +16,13 @@ import {
   FolderPlus,
   Vault,
   ChevronDown,
+  Download,
+  Settings,
 } from "lucide-react";
 import type { SidebarRoute } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
- * Sidebar — Stage 3: Enhanced with Lucide icons, smooth
- * animations, gradient accents, settings button, and polished UI
+ * Sidebar — Stage 4: Export & settings actions, improved polish
  * ───────────────────────────────────────────────────────────── */
 
 interface NavItem {
@@ -35,7 +36,6 @@ export function Sidebar() {
   const sidebarRoute = useAppStore((s) => s.sidebarRoute);
   const setSidebarRoute = useAppStore((s) => s.setSidebarRoute);
   const openCommandPalette = useAppStore((s) => s.openCommandPalette);
-  const vaultPath = useAppStore((s) => s.preferences.vaultPath);
   const notes = useNotesStore((s) => s.notes);
   const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
   const pinnedNoteIds = useNotesStore((s) => s.pinnedNoteIds);
@@ -78,9 +78,7 @@ export function Sidebar() {
     toast.success("New note created");
   }
 
-  const vaultName = vaultPath
-    ? vaultPath.split("/").filter(Boolean).pop() ?? "My Vault"
-    : "Demo Vault";
+  const vaultName = "Demo Vault";
 
   return (
     <div
@@ -88,6 +86,7 @@ export function Sidebar() {
         "flex h-full flex-col overflow-hidden",
         "border-r border-ragnar-border-subtle",
         "bg-ragnar-sidebar-bg glass-surface",
+        "transition-colors duration-200",
       )}
     >
       {/* Vault header */}
@@ -96,12 +95,8 @@ export function Sidebar() {
           <Vault size={14} className="text-ragnar-accent" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="truncate text-[13px] font-semibold text-ragnar-text-primary">
-            {vaultName}
-          </p>
-          <p className="text-[10px] text-ragnar-text-muted">
-            {allCount} notes
-          </p>
+          <p className="truncate text-[13px] font-semibold text-ragnar-text-primary">{vaultName}</p>
+          <p className="text-[10px] text-ragnar-text-muted">{allCount} notes</p>
         </div>
         <ChevronDown size={12} className="text-ragnar-text-muted" />
       </div>
@@ -151,9 +146,7 @@ export function Sidebar() {
       {/* Folder tree */}
       <div className="flex-1 overflow-y-auto px-2 py-1 no-scrollbar">
         <div className="mb-1 flex items-center justify-between px-3 pt-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
-            Folders
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">Folders</p>
           <Tooltip content="New Folder" side="right">
             <button className="rounded p-0.5 text-ragnar-text-muted transition-colors hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary">
               <FolderPlus size={12} />
@@ -165,7 +158,7 @@ export function Sidebar() {
 
       <Divider />
 
-      {/* New Note + Settings */}
+      {/* Bottom actions */}
       <div className="p-2 space-y-1.5">
         <Tooltip content="Create a new note" shortcut="⌘N" side="top">
           <motion.button
@@ -184,6 +177,41 @@ export function Sidebar() {
             New Note
           </motion.button>
         </Tooltip>
+
+        {/* Quick actions row */}
+        <div className="flex items-center gap-1">
+          <Tooltip content="Export current note" shortcut="⌘⇧E" side="top">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.dispatchEvent(new Event("ragnar-open-export"))}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2",
+                "text-[11px] font-medium text-ragnar-text-muted",
+                "border border-ragnar-border-subtle",
+                "transition-all hover:border-ragnar-border hover:text-ragnar-text-primary hover:bg-ragnar-bg-hover",
+              )}
+            >
+              <Download size={12} />
+              Export
+            </motion.button>
+          </Tooltip>
+
+          <Tooltip content="Settings" side="top">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.dispatchEvent(new Event("ragnar-open-settings"))}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2",
+                "text-[11px] font-medium text-ragnar-text-muted",
+                "border border-ragnar-border-subtle",
+                "transition-all hover:border-ragnar-border hover:text-ragnar-text-primary hover:bg-ragnar-bg-hover",
+              )}
+            >
+              <Settings size={12} />
+              Settings
+            </motion.button>
+          </Tooltip>
+        </div>
       </div>
     </div>
   );
@@ -211,7 +239,6 @@ function NavRow({
           : "text-ragnar-text-secondary hover:bg-ragnar-sidebar-hover hover:text-ragnar-text-primary",
       )}
     >
-      {/* Active indicator */}
       <AnimatePresence>
         {isActive && (
           <motion.span

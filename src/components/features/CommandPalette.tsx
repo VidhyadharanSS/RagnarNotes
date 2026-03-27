@@ -22,13 +22,15 @@ import {
   Plus,
   Hash,
   Clock,
+  FileDown,
+  FileCode,
+  Settings,
+  Copy,
 } from "lucide-react";
 import type { PaletteCommand, Note } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
- * CommandPalette — Stage 3: Enhanced with Lucide icons,
- * note metadata in results, tag search, theme commands, and
- * improved animation
+ * CommandPalette — Stage 4: Export commands, settings, duplicate
  * ───────────────────────────────────────────────────────────── */
 
 export function CommandPalette() {
@@ -57,6 +59,7 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
   const notes = useNotesStore((s) => s.notes);
   const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
   const setActiveNote = useEditorStore((s) => s.setActiveNote);
+  const activeNote = useEditorStore((s) => s.activeNote);
   const recentNoteIds = useSearchStore((s) => s.recentNoteIds);
   const addRecentNote = useSearchStore((s) => s.addRecentNote);
 
@@ -65,6 +68,7 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
   const toggleZen = useEditorStore((s) => s.toggleZen);
   const toggleSplitView = useEditorStore((s) => s.toggleSplitView);
   const updatePreferences = useAppStore((s) => s.updatePreferences);
+  const upsertNote = useNotesStore((s) => s.upsertNote);
 
   useClickOutside(panelRef, onClose);
 
@@ -78,6 +82,24 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
     { id: "mode-readonly", label: "Preview Mode", shortcut: "⌘⇧P", icon: "eye", section: "editor", action: () => { setMode("readonly"); onClose(); } },
     { id: "mode-zen", label: "Focus Mode", shortcut: "⌘.", icon: "focus", section: "view", action: () => { toggleZen(); onClose(); } },
     { id: "split-view", label: "Split View", shortcut: "⌘⇧S", icon: "columns", section: "view", action: () => { toggleSplitView(); onClose(); } },
+    // Export commands
+    { id: "export-pdf", label: "Export as PDF", shortcut: "⌘⇧E", icon: "download", section: "file", action: () => { window.dispatchEvent(new Event("ragnar-open-export")); onClose(); } },
+    { id: "export-md", label: "Export as Markdown", icon: "file-text", section: "file", action: () => { window.dispatchEvent(new Event("ragnar-open-export")); onClose(); } },
+    { id: "export-html", label: "Export as HTML", icon: "file-code", section: "file", action: () => { window.dispatchEvent(new Event("ragnar-open-export")); onClose(); } },
+    // Duplicate
+    ...(activeNote ? [{
+      id: "duplicate-note", label: "Duplicate Current Note", icon: "copy", section: "file" as const, action: () => {
+        const id = `note-${Date.now()}`;
+        const now = new Date().toISOString();
+        const dup = { ...activeNote, id, title: `${activeNote.title} (Copy)`, filePath: `/vault/copy-${Date.now()}.md`, isUnsaved: true, frontmatter: { ...activeNote.frontmatter, title: `${activeNote.title} (Copy)`, createdAt: now, updatedAt: now } };
+        upsertNote(dup);
+        setActiveNote(dup);
+        onClose();
+      }
+    }] : []),
+    // Settings
+    { id: "open-settings", label: "Open Settings", icon: "settings", section: "system", action: () => { window.dispatchEvent(new Event("ragnar-open-settings")); onClose(); } },
+    // Theme
     { id: "theme-dark", label: "Theme: Dark", icon: "moon", section: "system", action: () => { updatePreferences({ theme: "dark" }); onClose(); } },
     { id: "theme-light", label: "Theme: Light", icon: "sun", section: "system", action: () => { updatePreferences({ theme: "light" }); onClose(); } },
     { id: "theme-system", label: "Theme: System", icon: "monitor", section: "system", action: () => { updatePreferences({ theme: "system" }); onClose(); } },
@@ -92,9 +114,13 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
     moon: <Moon size={14} />,
     sun: <Sun size={14} />,
     monitor: <Monitor size={14} />,
+    download: <FileDown size={14} />,
+    "file-text": <FileText size={14} />,
+    "file-code": <FileCode size={14} />,
+    copy: <Copy size={14} />,
+    settings: <Settings size={14} />,
   };
 
-  // Note search
   const noteResults: Note[] = debouncedQuery
     ? Object.values(notes)
         .filter(
@@ -109,7 +135,6 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
         .slice(0, 8)
     : recentNoteIds.map((id) => notes[id]).filter(Boolean).slice(0, 5);
 
-  // Command filter
   const filteredCommands = debouncedQuery
     ? builtinCommands.filter((c) =>
         c.label.toLowerCase().includes(debouncedQuery.toLowerCase()),
@@ -129,14 +154,11 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
     setSelectedIdx(0);
   }, [debouncedQuery]);
 
-  // Auto-scroll selected item into view
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const selected = list.children[selectedIdx] as HTMLElement;
-    if (selected) {
-      selected.scrollIntoView({ block: "nearest" });
-    }
+    if (selected) selected.scrollIntoView({ block: "nearest" });
   }, [selectedIdx]);
 
   const handleKeyDown = useCallback(
@@ -165,7 +187,6 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {/* Backdrop */}
       <motion.div
         key="backdrop"
         initial={{ opacity: 0 }}
@@ -175,7 +196,6 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
         className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
       />
 
-      {/* Panel */}
       <motion.div
         key="panel"
         ref={panelRef}
@@ -191,7 +211,6 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
           "overflow-hidden",
         )}
       >
-        {/* Search input */}
         <div className="flex items-center gap-3 border-b border-ragnar-border-subtle px-4 py-3.5">
           <Search size={16} className="flex-shrink-0 text-ragnar-text-muted" />
           <input
@@ -211,14 +230,11 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
           </kbd>
         </div>
 
-        {/* Results */}
         <div ref={listRef} className="max-h-[420px] overflow-y-auto py-1.5">
           {items.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
               <Search size={24} className="text-ragnar-text-muted opacity-40" />
-              <p className="text-[13px] text-ragnar-text-muted">
-                No results for "{query}"
-              </p>
+              <p className="text-[13px] text-ragnar-text-muted">No results for &ldquo;{query}&rdquo;</p>
             </div>
           ) : (
             <>
@@ -233,11 +249,7 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
                   key={note.id}
                   note={note}
                   isSelected={selectedIdx === idx}
-                  onSelect={() => {
-                    setActiveNote(note);
-                    addRecentNote(note.id);
-                    onClose();
-                  }}
+                  onSelect={() => { setActiveNote(note); addRecentNote(note.id); onClose(); }}
                 />
               ))}
 
@@ -257,43 +269,28 @@ function PaletteModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Footer hints */}
         <div className="flex items-center gap-4 border-t border-ragnar-border-subtle px-4 py-2">
           <Hint keys={["↑", "↓"]} label="navigate" />
           <Hint keys={["↵"]} label="select" />
           <Hint keys={["Esc"]} label="close" />
           <div className="flex-1" />
-          <span className="text-[10px] text-ragnar-text-muted opacity-50">
-            {items.length} results
-          </span>
+          <span className="text-[10px] text-ragnar-text-muted opacity-50">{items.length} results</span>
         </div>
       </motion.div>
     </>
   );
 }
 
-/* ── Sub-components ── */
-
 function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5 px-4 pb-1 pt-2.5">
       {icon && <span className="text-ragnar-text-muted">{icon}</span>}
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
-        {label}
-      </p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">{label}</p>
     </div>
   );
 }
 
-function PaletteNoteRow({
-  note,
-  isSelected,
-  onSelect,
-}: {
-  note: Note;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
+function PaletteNoteRow({ note, isSelected, onSelect }: { note: Note; isSelected: boolean; onSelect: () => void }) {
   const excerpt = note.content
     .replace(/#{1,6}\s+/g, "")
     .replace(/[*_`>[\]]/g, "")
@@ -314,18 +311,12 @@ function PaletteNoteRow({
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate text-[13px] font-medium text-ragnar-text-primary">
-            {note.title || "Untitled"}
-          </p>
+          <p className="truncate text-[13px] font-medium text-ragnar-text-primary">{note.title || "Untitled"}</p>
           {note.frontmatter.tags.length > 0 && (
-            <span className="rounded-full bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[9px] text-ragnar-text-muted">
-              #{note.frontmatter.tags[0]}
-            </span>
+            <span className="rounded-full bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[9px] text-ragnar-text-muted">#{note.frontmatter.tags[0]}</span>
           )}
         </div>
-        {excerpt && (
-          <p className="truncate text-[11px] text-ragnar-text-muted">{excerpt}</p>
-        )}
+        {excerpt && <p className="truncate text-[11px] text-ragnar-text-muted">{excerpt}</p>}
       </div>
       {isSelected && (
         <kbd className="flex-shrink-0 rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 text-[10px] text-ragnar-text-muted">↵</kbd>
@@ -334,17 +325,7 @@ function PaletteNoteRow({
   );
 }
 
-function PaletteCommandRow({
-  command,
-  icon,
-  isSelected,
-  onSelect,
-}: {
-  command: PaletteCommand;
-  icon: React.ReactNode;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
+function PaletteCommandRow({ command, icon, isSelected, onSelect }: { command: PaletteCommand; icon: React.ReactNode; isSelected: boolean; onSelect: () => void }) {
   return (
     <button
       onClick={onSelect}
@@ -353,16 +334,10 @@ function PaletteCommandRow({
         isSelected ? "bg-ragnar-accent/12" : "hover:bg-ragnar-bg-hover",
       )}
     >
-      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-ragnar-bg-tertiary text-ragnar-text-muted">
-        {icon}
-      </span>
-      <span className="flex-1 text-[13px] font-medium text-ragnar-text-primary">
-        {command.label}
-      </span>
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-ragnar-bg-tertiary text-ragnar-text-muted">{icon}</span>
+      <span className="flex-1 text-[13px] font-medium text-ragnar-text-primary">{command.label}</span>
       {command.shortcut && (
-        <kbd className="rounded-md bg-ragnar-bg-tertiary px-2 py-0.5 font-mono text-[11px] text-ragnar-text-muted">
-          {command.shortcut}
-        </kbd>
+        <kbd className="rounded-md bg-ragnar-bg-tertiary px-2 py-0.5 font-mono text-[11px] text-ragnar-text-muted">{command.shortcut}</kbd>
       )}
     </button>
   );
@@ -372,12 +347,7 @@ function Hint({ keys, label }: { keys: string[]; label: string }) {
   return (
     <div className="flex items-center gap-1">
       {keys.map((k) => (
-        <kbd
-          key={k}
-          className="rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 font-mono text-[10px] text-ragnar-text-muted"
-        >
-          {k}
-        </kbd>
+        <kbd key={k} className="rounded bg-ragnar-bg-tertiary px-1.5 py-0.5 font-mono text-[10px] text-ragnar-text-muted">{k}</kbd>
       ))}
       <span className="ml-0.5 text-[11px] text-ragnar-text-muted">{label}</span>
     </div>

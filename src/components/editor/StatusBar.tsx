@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEditorStore } from "@stores/editorStore";
 import { useNotesStore } from "@stores/notesStore";
 import { formatWordCount, formatRelativeTime } from "@utils/format";
@@ -10,16 +10,22 @@ import {
   Eye,
   Pencil,
   Focus,
-  Save,
+  CloudUpload,
+  CloudCheck,
+  Download,
+  Pin,
 } from "lucide-react";
 
-/* ─────────────────────────────────────────────────────────────
- * StatusBar — Stage 3: Enhanced bottom bar
+/**
+ * StatusBar — Stage 4
  *
- * Shows: mode badge, word/char counts, save status,
- *        reading time, tag count, last updated
- * ───────────────────────────────────────────────────────────── */
-
+ * Improvements:
+ *  - Animated save indicator (cloud icon, pulse on unsaved)
+ *  - Character count only shows on hover (saves space)
+ *  - Sentence count added
+ *  - Pinned badge with pin icon
+ *  - Export button triggers ExportModal via event
+ */
 export function StatusBar() {
   const wordCount = useEditorStore((s) => s.wordCount);
   const charCount = useEditorStore((s) => s.charCount);
@@ -35,42 +41,70 @@ export function StatusBar() {
   const tagCount = activeNote.frontmatter.tags.length;
   const isPinned = pinnedNoteIds.includes(activeNote.id);
 
-  const modeConfig = {
-    edit: { label: "Editing", icon: <Pencil size={10} />, color: "text-ragnar-accent bg-ragnar-accent/12" },
-    readonly: { label: "Preview", icon: <Eye size={10} />, color: "text-emerald-400 bg-emerald-500/12" },
-    zen: { label: "Focus", icon: <Focus size={10} />, color: "text-purple-400 bg-purple-500/12" },
-  };
+  // Sentence count (rough: split by . ! ? endings)
+  const sentenceCount = (activeNote.content.match(/[.!?]+/g) ?? []).length;
 
-  const currentMode = modeConfig[mode] ?? modeConfig.edit;
+  const modeConfig = {
+    edit: {
+      label: "Editing",
+      icon: <Pencil size={10} />,
+      color: "text-ragnar-accent bg-ragnar-accent/10",
+    },
+    readonly: {
+      label: "Preview",
+      icon: <Eye size={10} />,
+      color: "text-emerald-400 bg-emerald-500/10",
+    },
+    zen: {
+      label: "Focus",
+      icon: <Focus size={10} />,
+      color: "text-violet-400 bg-violet-500/10",
+    },
+  } as const;
+
+  const currentMode = modeConfig[mode as keyof typeof modeConfig] ?? modeConfig.edit;
 
   return (
     <div
       className={cn(
-        "flex h-7 items-center gap-3 border-t border-ragnar-border-subtle px-4",
-        "bg-ragnar-bg-primary/60 glass-surface",
-        "text-[11px]",
+        "flex h-[26px] items-center gap-2.5 border-t border-ragnar-border-subtle px-4",
+        "bg-ragnar-bg-primary/70 backdrop-blur-sm",
+        "text-[11px] transition-colors duration-200 overflow-hidden",
       )}
     >
-      {/* Save status */}
-      <div className="flex items-center gap-1.5">
+      {/* Save status — animated */}
+      <AnimatePresence mode="wait">
         {isUnsaved ? (
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            key="unsaved"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
             className="flex items-center gap-1 text-ragnar-accent"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-ragnar-accent animate-pulse" />
+            <motion.div
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            >
+              <CloudUpload size={11} />
+            </motion.div>
             <span>Unsaved</span>
           </motion.div>
         ) : (
-          <div className="flex items-center gap-1 text-ragnar-text-muted">
-            <Save size={10} />
+          <motion.div
+            key="saved"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            className="flex items-center gap-1 text-ragnar-text-muted"
+          >
+            <CloudCheck size={11} />
             <span>Saved</span>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      <StatusDivider />
+      <Dot />
 
       {/* Word count */}
       <div className="flex items-center gap-1 text-ragnar-text-muted">
@@ -79,11 +113,18 @@ export function StatusBar() {
       </div>
 
       {/* Char count */}
-      <span className="text-ragnar-text-muted">
+      <span className="hidden sm:inline text-ragnar-text-muted/70">
         {charCount.toLocaleString()} chars
       </span>
 
-      <StatusDivider />
+      {/* Sentences */}
+      {sentenceCount > 0 && (
+        <span className="hidden md:inline text-ragnar-text-muted/70">
+          {sentenceCount} sentences
+        </span>
+      )}
+
+      <Dot />
 
       {/* Reading time */}
       <div className="flex items-center gap-1 text-ragnar-text-muted">
@@ -94,36 +135,57 @@ export function StatusBar() {
       {/* Tags */}
       {tagCount > 0 && (
         <>
-          <StatusDivider />
+          <Dot />
           <div className="flex items-center gap-1 text-ragnar-text-muted">
             <Hash size={10} />
-            <span>{tagCount} {tagCount === 1 ? "tag" : "tags"}</span>
+            <span>
+              {tagCount} {tagCount === 1 ? "tag" : "tags"}
+            </span>
           </div>
         </>
       )}
 
-      {/* Pinned indicator */}
+      {/* Pinned */}
       {isPinned && (
         <>
-          <StatusDivider />
-          <span className="text-ragnar-accent">📌 Pinned</span>
+          <Dot />
+          <div className="flex items-center gap-1 text-ragnar-accent">
+            <Pin size={9} className="rotate-45" />
+            <span>Pinned</span>
+          </div>
         </>
       )}
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Last updated */}
+      {/* Export */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("ragnar-open-export"))}
+        title="Export note (⌘⇧E)"
+        className={cn(
+          "flex items-center gap-1 rounded px-1.5 py-0.5",
+          "text-ragnar-text-muted transition-colors",
+          "hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary",
+        )}
+      >
+        <Download size={10} />
+        <span>Export</span>
+      </button>
+
+      <Dot />
+
+      {/* Last saved */}
       <span className="text-ragnar-text-muted">
         {formatRelativeTime(activeNote.frontmatter.updatedAt)}
       </span>
 
-      <StatusDivider />
+      <Dot />
 
       {/* Mode badge */}
       <span
         className={cn(
-          "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+          "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
           currentMode.color,
         )}
       >
@@ -131,12 +193,11 @@ export function StatusBar() {
         {isSplitView ? "Split" : currentMode.label}
       </span>
 
-      {/* Format label */}
-      <span className="text-ragnar-text-muted opacity-50">Markdown</span>
+      <span className="text-ragnar-text-muted/40">Markdown</span>
     </div>
   );
 }
 
-function StatusDivider() {
-  return <span className="text-ragnar-border">·</span>;
+function Dot() {
+  return <span className="text-ragnar-border select-none">·</span>;
 }

@@ -13,17 +13,12 @@ import {
   Maximize2,
   Minimize2,
   Search,
+Download,
+  Settings,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
- * TitleBar — macOS-style window title bar (Stage 3)
- *
- * Stage 3 changes:
- *  - Lucide icons instead of custom SVGs
- *  - Settings button
- *  - Search/new note quick actions on left
- *  - Breadcrumb-style path for active note
- *  - Improved visuals
+ * TitleBar — Stage 4: Enhanced with export + settings buttons
  * ───────────────────────────────────────────────────────────── */
 
 export function TitleBar() {
@@ -40,7 +35,7 @@ export function TitleBar() {
 
   const isZen = mode === "zen";
 
-  // ── Keyboard shortcuts ──
+  // Keyboard shortcuts
   useKeyboardShortcut("cmd+/", toggleSidebar);
   useKeyboardShortcut("cmd+k", openCommandPalette);
   useKeyboardShortcut("cmd+.", toggleZen);
@@ -53,6 +48,9 @@ export function TitleBar() {
     setMode("readonly");
   });
   useKeyboardShortcut("cmd+shift+s", toggleSplitView);
+  useKeyboardShortcut("cmd+shift+e", () => {
+    window.dispatchEvent(new Event("ragnar-open-export"));
+  });
 
   return (
     <div
@@ -60,16 +58,14 @@ export function TitleBar() {
         "drag-region relative z-50 flex h-[38px] w-full flex-shrink-0 items-center",
         "border-b border-ragnar-border-subtle",
         "bg-ragnar-bg-primary/80 glass-surface",
-        isZen && "opacity-0 hover:opacity-100 transition-opacity duration-500",
+        "transition-colors duration-200",
+        isZen && "opacity-0 hover:opacity-100 transition-all duration-500",
       )}
     >
-      {/* Left: traffic lights placeholder + sidebar + search */}
+      {/* Left: traffic lights + sidebar + search */}
       <div className="no-drag flex items-center gap-1 pl-[76px]">
         <Tooltip content="Toggle Sidebar" shortcut="⌘/" side="bottom">
-          <IconButton
-            onClick={toggleSidebar}
-            active={!isSidebarVisible}
-          >
+          <IconButton onClick={toggleSidebar} active={!isSidebarVisible}>
             <PanelLeft size={14} />
           </IconButton>
         </Tooltip>
@@ -94,18 +90,35 @@ export function TitleBar() {
           <span className="select-none text-[13px] font-medium text-ragnar-text-secondary">
             {activeNote ? activeNote.title : "Ragnar Notes"}
           </span>
-          {activeNote && (
+          {activeNote && activeNote.frontmatter.tags.length > 0 && (
             <span className="text-[11px] text-ragnar-text-muted">
-              {activeNote.frontmatter.tags.length > 0 &&
-                `#${activeNote.frontmatter.tags[0]}`}
+              #{activeNote.frontmatter.tags[0]}
             </span>
           )}
         </div>
       </div>
 
-      {/* Right: theme + mode controls */}
+      {/* Right: theme + export + settings + mode controls */}
       <div className="no-drag ml-auto flex items-center gap-0.5 pr-3">
         <ThemeToggle />
+
+        <div className="mx-1.5 h-4 w-px bg-ragnar-border-subtle" />
+
+        {/* Export */}
+        {activeNote && (
+          <Tooltip content="Export Note" shortcut="⌘⇧E" side="bottom">
+            <IconButton onClick={() => window.dispatchEvent(new Event("ragnar-open-export"))}>
+              <Download size={13} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Settings */}
+        <Tooltip content="Settings" side="bottom">
+          <IconButton onClick={() => window.dispatchEvent(new Event("ragnar-open-settings"))}>
+            <Settings size={13} />
+          </IconButton>
+        </Tooltip>
 
         <div className="mx-1.5 h-4 w-px bg-ragnar-border-subtle" />
 

@@ -409,3 +409,146 @@ textarea,
 input {
   caret-color: var(--ragnar-accent);
 }
+
+/* ── Range Slider (Settings Panel) ── */
+
+.range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ragnar-accent);
+  border: 2px solid var(--ragnar-bg-secondary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ragnar-accent);
+  border: 2px solid var(--ragnar-bg-secondary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* ── Callout blocks (Stage 4) ── */
+
+.ragnar-prose .callout {
+  display: flex;
+  gap: 0.75em;
+  align-items: flex-start;
+  border-radius: 10px;
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  border: 1px solid;
+  font-size: 0.9em;
+}
+
+.ragnar-prose .callout-note {
+  background: rgba(10, 132, 255, 0.08);
+  border-color: rgba(10, 132, 255, 0.25);
+  color: var(--ragnar-text-primary);
+}
+
+.ragnar-prose .callout-warning {
+  background: rgba(255, 159, 10, 0.08);
+  border-color: rgba(255, 159, 10, 0.25);
+  color: var(--ragnar-text-primary);
+}
+
+.ragnar-prose .callout-tip {
+  background: rgba(48, 209, 88, 0.08);
+  border-color: rgba(48, 209, 88, 0.25);
+  color: var(--ragnar-text-primary);
+}
+
+.ragnar-prose .callout-important {
+  background: rgba(191, 90, 242, 0.08);
+  border-color: rgba(191, 90, 242, 0.25);
+  color: var(--ragnar-text-primary);
+}
+
+.ragnar-prose .callout-caution {
+  background: rgba(255, 69, 58, 0.08);
+  border-color: rgba(255, 69, 58, 0.25);
+  color: var(--ragnar-text-primary);
+}
+
+.ragnar-prose .callout-icon {
+  flex-shrink: 0;
+  font-size: 1em;
+  line-height: 1.6;
+}
+
+.ragnar-prose .callout-body {
+  flex: 1;
+  line-height: 1.6;
+}
+
+.ragnar-prose .callout-body p {
+  margin: 0;
+}
+
+/* ── Image figure ── */
+
+.ragnar-prose .img-figure {
+  margin: 1.25em 0;
+  text-align: center;
+}
+
+.ragnar-prose .img-figure img {
+  margin: 0 auto;
+  border: 1px solid var(--ragnar-border-subtle);
+}
+
+.ragnar-prose .img-caption {
+  font-size: 0.8em;
+  color: var(--ragnar-text-muted);
+  margin-top: 0.5em;
+  font-style: italic;
+}
+
+/* ── Empty preview state ── */
+
+.ragnar-prose .empty-preview {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--ragnar-text-muted);
+}
+
+.ragnar-prose .empty-preview p:first-child {
+  font-size: 1.1em;
+  margin-bottom: 0.5em;
+}
+
+.ragnar-prose .empty-preview p:last-child {
+  font-size: 0.85em;
+  opacity: 0.6;
+}
+
+/* ── Smooth theme transitions ── */
+
+html {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+body {
+  transition: background-color 0.25s ease;
+}
