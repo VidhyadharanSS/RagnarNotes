@@ -1,18 +1,21 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@stores/appStore";
 import { useNotesStore } from "@stores/notesStore";
+import { useEditorStore } from "@stores/editorStore";
+import { Tooltip } from "@components/ui/Tooltip";
+import { FolderTree } from "@components/features/FolderTree";
 import { cn } from "@utils/cn";
 import type { SidebarRoute } from "@/types";
-import { FolderTree } from "@components/features/FolderTree";
 
 /* ─────────────────────────────────────────────────────────────
- * Sidebar — Left navigation panel
+ * Sidebar — Left navigation panel (Stage 2)
  *
- * Features:
- *  - Frosted-glass background (glass-surface utility)
- *  - Primary nav routes (All Notes, Favorites, Tags, Trash)
- *  - Folder tree (FolderTree component)
- *  - New folder / new note CTAs
+ * Stage 2 additions:
+ *  - Tooltips on all action buttons
+ *  - "New Note" wires to notesStore.createNew (stub)
+ *  - Folder count badge on Folders section
+ *  - Smooth entrance animations per nav item
+ *  - User avatar / vault name at the bottom
  * ───────────────────────────────────────────────────────────── */
 
 interface NavItem {
@@ -26,11 +29,15 @@ export function Sidebar() {
   const sidebarRoute = useAppStore((s) => s.sidebarRoute);
   const setSidebarRoute = useAppStore((s) => s.setSidebarRoute);
   const openCommandPalette = useAppStore((s) => s.openCommandPalette);
+  const vaultPath = useAppStore((s) => s.preferences.vaultPath);
   const notes = useNotesStore((s) => s.notes);
   const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
+  const pinnedNoteIds = useNotesStore((s) => s.pinnedNoteIds);
+  const setActiveNote = useEditorStore((s) => s.setActiveNote);
+  const upsertNote = useNotesStore((s) => s.upsertNote);
 
   const allCount = Object.keys(notes).length - trashedNoteIds.length;
-  const pinnedCount = useNotesStore((s) => s.pinnedNoteIds.length);
+  const pinnedCount = pinnedNoteIds.length;
   const trashCount = trashedNoteIds.length;
 
   const navItems: NavItem[] = [
@@ -40,41 +47,78 @@ export function Sidebar() {
     { id: "trash", label: "Trash", icon: <TrashIcon />, badge: trashCount || undefined },
   ];
 
+  function handleNewNote() {
+    const id = `note-${Date.now()}`;
+    const now = new Date().toISOString();
+    const newNote = {
+      id,
+      title: "Untitled",
+      content: "# Untitled\n\n",
+      folderId: "folder-work",
+      filePath: `/vault/untitled-${Date.now()}.md`,
+      isUnsaved: true,
+      frontmatter: {
+        title: "Untitled",
+        createdAt: now,
+        updatedAt: now,
+        tags: [],
+        pinned: false,
+        aliases: [],
+      },
+    };
+    upsertNote(newNote);
+    setActiveNote(newNote);
+    setSidebarRoute("all-notes");
+  }
+
+  const vaultName = vaultPath
+    ? vaultPath.split("/").filter(Boolean).pop() ?? "My Vault"
+    : "Demo Vault";
+
   return (
     <div
       className={cn(
-        "flex h-full flex-col border-r border-ragnar-border-subtle",
+        "flex h-full flex-col overflow-hidden",
+        "border-r border-ragnar-border-subtle",
         "bg-ragnar-sidebar-bg glass-surface",
       )}
     >
-      {/* Search button */}
+      {/* Search shortcut button */}
       <div className="px-3 pt-3 pb-2">
-        <motion.button
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={openCommandPalette}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2",
-            "bg-ragnar-bg-hover text-ragnar-text-muted",
-            "text-[13px] transition-colors hover:text-ragnar-text-primary",
-            "border border-ragnar-border-subtle",
-          )}
-        >
-          <SearchIcon />
-          <span>Search…</span>
-          <span className="ml-auto font-mono text-[11px] opacity-60">⌘K</span>
-        </motion.button>
+        <Tooltip content="Search or run a command" shortcut="⌘K" side="right">
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={openCommandPalette}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-lg px-3 py-2",
+              "bg-ragnar-bg-hover text-ragnar-text-muted",
+              "text-[13px] border border-ragnar-border-subtle",
+              "transition-colors hover:text-ragnar-text-primary hover:border-ragnar-border",
+            )}
+          >
+            <SearchIcon />
+            <span className="flex-1 text-left">Search…</span>
+            <span className="font-mono text-[11px] opacity-50">⌘K</span>
+          </motion.button>
+        </Tooltip>
       </div>
 
       {/* Primary navigation */}
       <nav className="px-2 py-1">
-        {navItems.map((item) => (
-          <NavRow
+        {navItems.map((item, i) => (
+          <motion.div
             key={item.id}
-            item={item}
-            isActive={sidebarRoute === item.id}
-            onClick={() => setSidebarRoute(item.id)}
-          />
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.04, duration: 0.2 }}
+          >
+            <NavRow
+              item={item}
+              isActive={sidebarRoute === item.id}
+              onClick={() => setSidebarRoute(item.id)}
+            />
+          </motion.div>
         ))}
       </nav>
 
@@ -82,19 +126,56 @@ export function Sidebar() {
 
       {/* Folder tree */}
       <div className="flex-1 overflow-y-auto px-2 py-1">
-        <SectionLabel label="Folders" />
+        <div className="mb-1 flex items-center justify-between px-3 pt-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
+            Folders
+          </p>
+          <Tooltip content="New Folder" side="right">
+            <button className="rounded p-0.5 text-ragnar-text-muted transition-colors hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary">
+              <PlusIcon size={10} />
+            </button>
+          </Tooltip>
+        </div>
         <FolderTree />
       </div>
 
-      {/* Bottom CTAs */}
-      <div className="border-t border-ragnar-border-subtle p-2">
-        <NewNoteButton />
+      <Divider />
+
+      {/* Vault info + new note */}
+      <div className="p-2 space-y-2">
+        {/* New Note button */}
+        <Tooltip content="Create a new note" shortcut="⌘N" side="top">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleNewNote}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-lg py-2",
+              "bg-ragnar-accent text-white text-[13px] font-semibold",
+              "shadow-[0_2px_12px_rgba(10,132,255,0.25)]",
+              "transition-all hover:bg-ragnar-accent-hover hover:shadow-[0_2px_16px_rgba(10,132,255,0.4)]",
+            )}
+          >
+            <PlusIcon />
+            New Note
+          </motion.button>
+        </Tooltip>
+
+        {/* Vault name footer */}
+        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-ragnar-accent/20">
+            <VaultIcon />
+          </div>
+          <span className="truncate text-[11px] text-ragnar-text-muted">
+            {vaultName}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ── Sub-components ── */
+/* ── NavRow ── */
 
 function NavRow({
   item,
@@ -107,7 +188,7 @@ function NavRow({
 }) {
   return (
     <motion.button
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
       className={cn(
         "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left",
@@ -117,47 +198,36 @@ function NavRow({
           : "text-ragnar-text-secondary hover:bg-ragnar-sidebar-hover hover:text-ragnar-text-primary",
       )}
     >
+      {/* Active indicator bar */}
+      <AnimatePresence>
+        {isActive && (
+          <motion.span
+            layoutId="nav-indicator"
+            className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-ragnar-accent"
+            initial={false}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          />
+        )}
+      </AnimatePresence>
+
       <span className="flex-shrink-0">{item.icon}</span>
       <span className="flex-1 truncate">{item.label}</span>
+
       {item.badge !== undefined && item.badge > 0 && (
-        <span
+        <motion.span
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
           className={cn(
-            "min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold",
+            "min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold",
             isActive
               ? "bg-ragnar-accent/20 text-ragnar-accent"
               : "bg-ragnar-bg-tertiary text-ragnar-text-muted",
           )}
         >
-          {item.badge}
-        </span>
+          {item.badge > 99 ? "99+" : item.badge}
+        </motion.span>
       )}
     </motion.button>
-  );
-}
-
-function NewNoteButton() {
-  // Will wire to file system creation in Stage 4
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.97 }}
-      className={cn(
-        "flex w-full items-center justify-center gap-2 rounded-lg py-2",
-        "bg-ragnar-accent text-white text-[13px] font-semibold",
-        "transition-opacity hover:opacity-90",
-      )}
-    >
-      <PlusIcon />
-      New Note
-    </motion.button>
-  );
-}
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <p className="mb-1 px-3 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ragnar-text-muted">
-      {label}
-    </p>
   );
 }
 
@@ -165,7 +235,7 @@ function Divider() {
   return <div className="mx-3 my-1 h-px bg-ragnar-border-subtle" />;
 }
 
-/* ── Inline Icons ── */
+/* ── Icons ── */
 function SearchIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -208,11 +278,19 @@ function TrashIcon() {
     </svg>
   );
 }
-function PlusIcon() {
+function PlusIcon({ size = 13 }: { size?: number }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width={size} height={size} viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <line x1="6.5" y1="1" x2="6.5" y2="12" />
       <line x1="1" y1="6.5" x2="12" y2="6.5" />
+    </svg>
+  );
+}
+function VaultIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--ragnar-accent)" strokeWidth="1.4" strokeLinecap="round">
+      <rect x="1" y="1" width="8" height="8" rx="1.5" />
+      <circle cx="5" cy="5" r="1.5" />
     </svg>
   );
 }

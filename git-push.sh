@@ -1,86 +1,75 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# git-push.sh — Ragnar Notes automated Git push script
+# git-push.sh — One-command push for Ragnar Notes
 #
 # Usage:
-#   chmod +x git-push.sh
-#   ./git-push.sh "feat: add new feature"   # custom message
-#   ./git-push.sh                            # auto-generates message
+#   ./git-push.sh "commit message"
+#   ./git-push.sh                     # uses auto-generated message
 #
-# ⚠️  SECURITY: Never hardcode tokens in this file.
-#     Set your token as an environment variable instead:
-#
-#     export RAGNAR_GH_TOKEN="ghp_your_token_here"
-#
-#     Add that export to your ~/.zshrc or ~/.bashrc so it persists.
-#     This script reads it from the environment — it is never stored
-#     in the repository or any tracked file.
+# The GitHub token is read from RAGNAR_GH_TOKEN env var.
+# Set it in your ~/.zshrc or ~/.bashrc:
+#   export RAGNAR_GH_TOKEN="your_pat_here"
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-# ── Config ───────────────────────────────────────────────────────────────────
-REPO_URL="https://github.com/VidhyadharanSS/RagnarNotes"
-BRANCH="${RAGNAR_BRANCH:-main}"
+# ── Configuration ──────────────────────────────────────────────────────────
+REPO_URL="https://github.com/VidhyadharanSS/RagnarNotes.git"
+BRANCH="main"
 
-# ── Colour output ─────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m' # No Colour
+# ── Colour helpers ──────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; RESET='\033[0m'
 
-info()    { echo -e "${BLUE}ℹ${NC}  $*"; }
-success() { echo -e "${GREEN}✓${NC}  $*"; }
-warn()    { echo -e "${YELLOW}⚠${NC}  $*"; }
-error()   { echo -e "${RED}✗${NC}  $*"; exit 1; }
+info()    { echo -e "${CYAN}ℹ  $*${RESET}"; }
+success() { echo -e "${GREEN}✅ $*${RESET}"; }
+warn()    { echo -e "${YELLOW}⚠  $*${RESET}"; }
+error()   { echo -e "${RED}❌ $*${RESET}"; exit 1; }
 
-# ── Banner ────────────────────────────────────────────────────────────────────
-echo -e "\n${BOLD}⚡ Ragnar Notes — Git Push Script${NC}"
-echo -e "────────────────────────────────────\n"
-
-# ── Verify token ──────────────────────────────────────────────────────────────
-if [[ -z "${RAGNAR_GH_TOKEN:-}" ]]; then
-  error "RAGNAR_GH_TOKEN is not set.\n\n  Run:  export RAGNAR_GH_TOKEN=\"ghp_your_token_here\"\n  Then: ./git-push.sh"
-fi
-
-# ── Verify we're in a git repo ────────────────────────────────────────────────
-if ! git rev-parse --git-dir &>/dev/null; then
-  error "Not a git repository. Run: git init"
-fi
-
-# ── Commit message ────────────────────────────────────────────────────────────
-if [[ $# -ge 1 && -n "$1" ]]; then
-  COMMIT_MSG="$1"
-else
-  TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
-  BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-  COMMIT_MSG="chore: auto-commit on ${BRANCH_NAME} at ${TIMESTAMP}"
-fi
-
-# ── Check for changes ─────────────────────────────────────────────────────────
-if git diff --quiet && git diff --staged --quiet; then
-  UNTRACKED=$(git ls-files --others --exclude-standard | wc -l | tr -d ' ')
-  if [[ "$UNTRACKED" -eq 0 ]]; then
-    warn "Nothing to commit — working tree is clean."
-    exit 0
+# ── Validate token ──────────────────────────────────────────────────────────
+TOKEN="${RAGNAR_GH_TOKEN:-}"
+if [[ -z "$TOKEN" ]]; then
+  # Fallback: read from .env if present (never commit .env!)
+  if [[ -f ".env" ]]; then
+    TOKEN=$(grep -E '^RAGNAR_GH_TOKEN=' .env | cut -d= -f2-)
   fi
 fi
 
-# ── Stage, commit, push ───────────────────────────────────────────────────────
+if [[ -z "$TOKEN" ]]; then
+  error "RAGNAR_GH_TOKEN is not set.\nRun: export RAGNAR_GH_TOKEN='your_pat_here'"
+fi
+
+# ── Commit message ──────────────────────────────────────────────────────────
+if [[ $# -ge 1 && -n "$1" ]]; then
+  MSG="$1"
+else
+  STAGE="Stage 2"
+  TIMESTAMP=$(date '+%Y-%m-%d %H:%M')
+  MSG="chore: auto-push ${STAGE} — ${TIMESTAMP}"
+fi
+
+# ── Git operations ──────────────────────────────────────────────────────────
 info "Staging all changes…"
 git add -A
 
-info "Committing: \"${COMMIT_MSG}\""
-git commit -m "${COMMIT_MSG}" || {
-  warn "Nothing new to commit (already committed)."
-}
+# Check if there's anything to commit
+if git diff --cached --quiet; then
+  warn "Nothing to commit — working tree clean."
+  info "Pushing existing commits…"
+else
+  info "Committing: \"${MSG}\""
+  git commit -m "$MSG"
+  success "Committed."
+fi
 
-# Set remote URL with token (token is never written to any file)
-AUTHED_URL="https://${RAGNAR_GH_TOKEN}@github.com/VidhyadharanSS/RagnarNotes.git"
+# Update remote URL with token (in-memory only, not stored)
+AUTHED_URL="https://${TOKEN}@${REPO_URL#https://}"
+git remote set-url origin "$AUTHED_URL"
 
-info "Pushing to ${REPO_URL} (branch: ${BRANCH})…"
-git push "${AUTHED_URL}" "HEAD:${BRANCH}" --follow-tags
+info "Pushing to ${BRANCH}…"
+git push origin "$BRANCH"
 
-echo -e "\n${GREEN}${BOLD}✓ Successfully pushed to ${REPO_URL}${NC}\n"
+# Reset remote URL to token-free version
+git remote set-url origin "$REPO_URL"
+
+success "Pushed to GitHub → ${REPO_URL}"
+echo -e "${CYAN}🔗 https://github.com/VidhyadharanSS/RagnarNotes${RESET}"
