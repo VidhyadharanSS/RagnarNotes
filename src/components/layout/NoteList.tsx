@@ -21,19 +21,20 @@ import {
   Copy,
   Download,
   FileEdit,
+  CheckSquare,
+  Square,
+  Package,
 } from "lucide-react";
-import type { Note } from "@/types";
+import type { Note, NoteId } from "@/types";
 
-/**
- * NoteList — Stage 5
+/* ─────────────────────────────────────────────────────────────
+ * NoteList — Stage 6 (Final)
  *
- * Improvements over Stage 4:
- *  - Keyboard navigation (↑↓ arrows to select, Enter to open)
- *  - Highlighted matched text in search results
- *  - Better excerpts with match highlighting
- *  - Improved card micro-interactions
- *  - Double-click to toggle pin
- */
+ * New: Multi-select mode with checkboxes for bulk operations
+ *  - Bulk trash, bulk delete, bulk export
+ *  - Toggle select mode with toolbar button
+ *  - Select all / deselect all
+ * ───────────────────────────────────────────────────────────── */
 
 type SortMode = "date-desc" | "title" | "date-asc";
 
@@ -55,6 +56,8 @@ export function NoteList() {
   const [sortMode, setSortMode] = useState<SortMode>("date-desc");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [keyboardIdx, setKeyboardIdx] = useState(-1);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<NoteId>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
 
   const allNotes = Object.values(notes);
@@ -126,8 +129,7 @@ export function NoteList() {
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (filteredNotes.length === 0) return;
-
+      if (selectMode || filteredNotes.length === 0) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setKeyboardIdx((i) => Math.min(i + 1, filteredNotes.length - 1));
@@ -143,7 +145,7 @@ export function NoteList() {
         }
       }
     },
-    [filteredNotes, keyboardIdx, setActiveNote, addRecentNote],
+    [filteredNotes, keyboardIdx, selectMode, setActiveNote, addRecentNote],
   );
 
   useEffect(() => {
@@ -151,19 +153,66 @@ export function NoteList() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Reset keyboard index when filter changes
-  useEffect(() => {
-    setKeyboardIdx(-1);
-  }, [query, tagFilter, sidebarRoute, sortMode]);
+  useEffect(() => { setKeyboardIdx(-1); }, [query, tagFilter, sidebarRoute, sortMode]);
 
-  // Scroll keyboard-selected item into view
   useEffect(() => {
     if (keyboardIdx < 0 || !listRef.current) return;
     const items = listRef.current.querySelectorAll("[data-note-item]");
     items[keyboardIdx]?.scrollIntoView({ block: "nearest" });
   }, [keyboardIdx]);
 
+  // Exit select mode when route changes
+  useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, [sidebarRoute]);
+
+  const toggleSelect = (id: NoteId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(filteredNotes.map((n) => n.id)));
+  const deselectAll = () => setSelectedIds(new Set());
+
+  // Bulk actions
+  const bulkTrash = useNotesStore((s) => s.bulkTrash);
+  const bulkDelete = useNotesStore((s) => s.bulkDelete);
+  const bulkRestore = useNotesStore((s) => s.bulkRestore);
   const deleteAll = useNotesStore((s) => s.deleteNote);
+
+  function handleBulkTrash() {
+    const ids = Array.from(selectedIds);
+    bulkTrash(ids);
+    toast.info(`${ids.length} note${ids.length > 1 ? "s" : ""} moved to trash`);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    bulkDelete(ids);
+    toast.warning(`${ids.length} note${ids.length > 1 ? "s" : ""} permanently deleted`);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
+
+  function handleBulkRestore() {
+    const ids = Array.from(selectedIds);
+    bulkRestore(ids);
+    toast.success(`${ids.length} note${ids.length > 1 ? "s" : ""} restored`);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
+
+  function handleBulkExport() {
+    window.dispatchEvent(new Event("ragnar-open-bulk-export"));
+  }
+
   function emptyTrash() {
     trashedNoteIds.forEach((id) => deleteAll(id));
     toast.success("Trash emptied");
@@ -183,6 +232,25 @@ export function NoteList() {
           {headings[sidebarRoute] ?? "Notes"}
         </h2>
         <div className="flex items-center gap-1.5">
+          {/* Select mode toggle */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              setSelectMode(!selectMode);
+              if (selectMode) setSelectedIds(new Set());
+            }}
+            className={cn(
+              "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors",
+              selectMode
+                ? "bg-ragnar-accent/15 text-ragnar-accent"
+                : "text-ragnar-text-muted hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary",
+            )}
+            title="Toggle multi-select"
+          >
+            <CheckSquare size={11} />
+            {selectMode ? "Done" : "Select"}
+          </motion.button>
+
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setSortMode(SORT_LABELS[sortMode].next)}
@@ -205,6 +273,41 @@ export function NoteList() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Bulk actions bar (when in select mode with selections) */}
+      {selectMode && selectedIds.size > 0 && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="flex items-center gap-1.5 border-b border-ragnar-border-subtle px-3 py-2 flex-wrap"
+        >
+          <span className="text-[11px] font-medium text-ragnar-accent mr-1">{selectedIds.size} selected</span>
+          <button onClick={selectedIds.size === filteredNotes.length ? deselectAll : selectAll} className="text-[10px] text-ragnar-text-muted hover:text-ragnar-text-primary transition-colors px-1.5 py-0.5 rounded">
+            {selectedIds.size === filteredNotes.length ? "Deselect all" : "Select all"}
+          </button>
+          <div className="flex-1" />
+          {sidebarRoute === "trash" ? (
+            <>
+              <button onClick={handleBulkRestore} className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
+                <RotateCcw size={10} /> Restore
+              </button>
+              <button onClick={handleBulkDelete} className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                <Trash2 size={10} /> Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={handleBulkExport} className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-ragnar-accent bg-ragnar-accent/10 hover:bg-ragnar-accent/20 transition-colors">
+                <Package size={10} /> Export
+              </button>
+              <button onClick={handleBulkTrash} className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                <Trash2 size={10} /> Trash
+              </button>
+            </>
+          )}
+        </motion.div>
+      )}
 
       {/* Search bar */}
       <NoteListSearch />
@@ -239,7 +342,7 @@ export function NoteList() {
       )}
 
       {/* Trash: Empty all button */}
-      {sidebarRoute === "trash" && trashCount > 0 && (
+      {sidebarRoute === "trash" && trashCount > 0 && !selectMode && (
         <div className="border-b border-ragnar-border-subtle px-3 py-2">
           <motion.button
             whileTap={{ scale: 0.97 }}
@@ -271,6 +374,9 @@ export function NoteList() {
                 isPinned={pinnedNoteIds.includes(note.id)}
                 isTrashed={trashedNoteIds.includes(note.id)}
                 isKeyboardSelected={keyboardIdx === idx}
+                isSelectMode={selectMode}
+                isSelected={selectedIds.has(note.id)}
+                onToggleSelect={() => toggleSelect(note.id)}
                 index={idx}
                 searchQuery={query}
               />
@@ -289,6 +395,9 @@ function NoteItem({
   isPinned,
   isTrashed,
   isKeyboardSelected,
+  isSelectMode,
+  isSelected,
+  onToggleSelect,
   index,
   searchQuery,
 }: {
@@ -297,6 +406,9 @@ function NoteItem({
   isPinned: boolean;
   isTrashed: boolean;
   isKeyboardSelected: boolean;
+  isSelectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
   index: number;
   searchQuery: string;
 }) {
@@ -313,11 +425,16 @@ function NoteItem({
   const [isHovered, setIsHovered] = useState(false);
 
   function handleClick() {
+    if (isSelectMode) {
+      onToggleSelect();
+      return;
+    }
     setActiveNote(note);
     addRecentNote(note.id);
   }
 
   function handleDoubleClick() {
+    if (isSelectMode) return;
     pinNote(note.id, !isPinned);
     toast.info(isPinned ? "Unpinned" : "Pinned to top");
   }
@@ -377,7 +494,7 @@ function NoteItem({
         },
       ]
     : [
-        { id: "open", label: "Open Note", icon: <FileEdit size={13} />, action: handleClick },
+        { id: "open", label: "Open Note", icon: <FileEdit size={13} />, action: () => { setActiveNote(note); addRecentNote(note.id); } },
         {
           id: "pin",
           label: isPinned ? "Unpin" : "Pin to Top",
@@ -405,7 +522,6 @@ function NoteItem({
 
   const excerpt = truncate(rawExcerpt, 110) || "No content yet…";
 
-  // Highlight search matches in title
   function highlightText(text: string, q: string) {
     if (!q.trim()) return text;
     const idx = text.toLowerCase().indexOf(q.toLowerCase());
@@ -439,16 +555,29 @@ function NoteItem({
           "group relative cursor-pointer px-4 py-3",
           "border-b border-ragnar-border-subtle",
           "border-l-2 transition-all duration-150",
-          isActive
-            ? "border-l-ragnar-accent bg-ragnar-accent/6"
-            : isKeyboardSelected
-              ? "border-l-ragnar-accent/50 bg-ragnar-bg-hover"
-              : "border-l-transparent hover:bg-ragnar-bg-hover hover:border-l-ragnar-text-muted/20",
+          isSelected
+            ? "border-l-ragnar-accent bg-ragnar-accent/8"
+            : isActive
+              ? "border-l-ragnar-accent bg-ragnar-accent/6"
+              : isKeyboardSelected
+                ? "border-l-ragnar-accent/50 bg-ragnar-bg-hover"
+                : "border-l-transparent hover:bg-ragnar-bg-hover hover:border-l-ragnar-text-muted/20",
         )}
       >
         {/* Title + quick actions */}
         <div className="mb-0.5 flex items-start gap-1.5">
-          {isPinned && (
+          {/* Checkbox in select mode */}
+          {isSelectMode && (
+            <span className="mt-0.5 flex-shrink-0">
+              {isSelected ? (
+                <CheckSquare size={13} className="text-ragnar-accent" />
+              ) : (
+                <Square size={13} className="text-ragnar-text-muted" />
+              )}
+            </span>
+          )}
+
+          {isPinned && !isSelectMode && (
             <Pin size={9} className="mt-1 flex-shrink-0 text-ragnar-accent rotate-45" />
           )}
           <h3
@@ -460,9 +589,9 @@ function NoteItem({
             {highlightText(note.title || "Untitled", searchQuery)}
           </h3>
 
-          {/* Hover quick actions */}
+          {/* Hover quick actions (hidden in select mode) */}
           <AnimatePresence>
-            {isHovered && !isTrashed && (
+            {isHovered && !isTrashed && !isSelectMode && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -501,12 +630,12 @@ function NoteItem({
         </div>
 
         {/* Excerpt */}
-        <p className="mb-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-ragnar-text-muted">
+        <p className={cn("mb-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-ragnar-text-muted", isSelectMode && "pl-5")}>
           {excerpt}
         </p>
 
         {/* Footer meta */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={cn("flex flex-wrap items-center gap-1.5", isSelectMode && "pl-5")}>
           <span className="text-[10px] text-ragnar-text-muted/80">
             {formatRelativeTime(note.frontmatter.updatedAt)}
           </span>

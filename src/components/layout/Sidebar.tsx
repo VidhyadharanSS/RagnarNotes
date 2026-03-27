@@ -183,7 +183,7 @@ export function Sidebar() {
           <Tooltip content="Export current note" shortcut="⌘⇧E" side="top">
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => window.dispatchEvent(new Event("ragnar-open-export"))}
+              onClick={() => window.dispatchEvent(new Event("ragnar-open-bulk-export"))}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2",
                 "text-[11px] font-medium text-ragnar-text-muted",

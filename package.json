@@ -1,7 +1,7 @@
 {
   "name": "ragnar-notes",
   "private": true,
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "A sleek, high-performance macOS note-taking application built with Tauri.",
   "type": "module",
   "scripts": {
@@ -19,11 +19,14 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.3",
+    "@types/file-saver": "^2.0.7",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "file-saver": "^2.0.5",
     "framer-motion": "^11.2.4",
     "highlight.js": "^11.11.1",
     "html2pdf.js": "^0.14.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.7.0",
     "marked": "^17.0.5",
     "react": "^18.2.0",

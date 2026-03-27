@@ -1,6 +1,6 @@
 [package]
 name = "ragnar-notes"
-version = "0.1.0"
+version = "1.0.0"
 description = "Ragnar Notes — A sleek, high-performance macOS note-taking app"
 authors = ["Vidhyadharan SS"]
 license = "MIT"
