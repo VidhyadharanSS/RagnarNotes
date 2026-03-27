@@ -2,7 +2,7 @@ name: "Ragnar Notes — CI/CD"
 
 on:
   push:
-    branches:[main, develop]
+    branches: [main, develop]
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
@@ -73,7 +73,7 @@ jobs:
   build-macos:
     name: "🏗️ Build macOS App"
     runs-on: macos-latest
-    needs:[lint, test, rust-lint]
+    needs: [lint, test, rust-lint]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
