@@ -250,7 +250,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               </motion.button>
 
               <p className="text-center text-[10px] text-ragnar-text-muted/50">
-                Ragnar Notes v0.4.0 · Stage 4 ·{" "}
+                Ragnar Notes v0.5.0 · Stage 5 ·{" "}
                 <a
                   href="https://github.com/VidhyadharanSS/RagnarNotes"
                   target="_blank"

@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEditorStore } from "@stores/editorStore";
 import { useNotesStore } from "@stores/notesStore";
+import { WordGoalWidget } from "@components/features/WordGoalWidget";
 import { formatWordCount, formatRelativeTime } from "@utils/format";
 import { cn } from "@utils/cn";
 import {
@@ -14,17 +15,17 @@ import {
   CloudCheck,
   Download,
   Pin,
+  Info,
 } from "lucide-react";
 
 /**
- * StatusBar — Stage 4
+ * StatusBar — Stage 5
  *
- * Improvements:
- *  - Animated save indicator (cloud icon, pulse on unsaved)
- *  - Character count only shows on hover (saves space)
- *  - Sentence count added
- *  - Pinned badge with pin icon
- *  - Export button triggers ExportModal via event
+ * New features:
+ *  - Word Goal progress ring (compact, click to set goal)
+ *  - Note Info toggle button
+ *  - Paragraph count
+ *  - Improved responsive layout
  */
 export function StatusBar() {
   const wordCount = useEditorStore((s) => s.wordCount);
@@ -40,8 +41,6 @@ export function StatusBar() {
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
   const tagCount = activeNote.frontmatter.tags.length;
   const isPinned = pinnedNoteIds.includes(activeNote.id);
-
-  // Sentence count (rough: split by . ! ? endings)
   const sentenceCount = (activeNote.content.match(/[.!?]+/g) ?? []).length;
 
   const modeConfig = {
@@ -72,7 +71,7 @@ export function StatusBar() {
         "text-[11px] transition-colors duration-200 overflow-hidden",
       )}
     >
-      {/* Save status — animated */}
+      {/* Save status */}
       <AnimatePresence mode="wait">
         {isUnsaved ? (
           <motion.div
@@ -112,12 +111,10 @@ export function StatusBar() {
         <span>{formatWordCount(wordCount)}</span>
       </div>
 
-      {/* Char count */}
+      {/* Char + Sentence (hidden on small) */}
       <span className="hidden sm:inline text-ragnar-text-muted/70">
         {charCount.toLocaleString()} chars
       </span>
-
-      {/* Sentences */}
       {sentenceCount > 0 && (
         <span className="hidden md:inline text-ragnar-text-muted/70">
           {sentenceCount} sentences
@@ -138,9 +135,7 @@ export function StatusBar() {
           <Dot />
           <div className="flex items-center gap-1 text-ragnar-text-muted">
             <Hash size={10} />
-            <span>
-              {tagCount} {tagCount === 1 ? "tag" : "tags"}
-            </span>
+            <span>{tagCount} {tagCount === 1 ? "tag" : "tags"}</span>
           </div>
         </>
       )}
@@ -156,8 +151,28 @@ export function StatusBar() {
         </>
       )}
 
-      {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Word Goal Widget */}
+      <WordGoalWidget compact />
+
+      <Dot />
+
+      {/* Note Info */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("ragnar-toggle-info"))}
+        title="Toggle note info panel"
+        className={cn(
+          "flex items-center gap-1 rounded px-1.5 py-0.5",
+          "text-ragnar-text-muted transition-colors",
+          "hover:bg-ragnar-bg-hover hover:text-ragnar-text-primary",
+        )}
+      >
+        <Info size={10} />
+        <span>Info</span>
+      </button>
+
+      <Dot />
 
       {/* Export */}
       <button

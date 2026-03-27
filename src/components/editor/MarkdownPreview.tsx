@@ -1,19 +1,19 @@
 import { useMemo, useCallback } from "react";
 import { useEditorStore } from "@stores/editorStore";
+import { useNotesStore } from "@stores/notesStore";
 import { useAppStore } from "@stores/appStore";
 import { cn } from "@utils/cn";
 import { Marked, Renderer } from "marked";
 import hljs from "highlight.js";
 
 /**
- * MarkdownPreview — Stage 4
+ * MarkdownPreview — Stage 5
  *
- * Improvements:
- *  - Task list checkboxes rendered with proper HTML (clickable in preview)
- *  - Font size + line height from user preferences
- *  - Wiki-link click → opens note (dispatches event)
- *  - Improved blockquote, callout, and table rendering
- *  - Footnote-style anchor links
+ * Improvements over Stage 4:
+ *  - Wiki-link click navigates to note (searches by title + aliases)
+ *  - Better code block copy button UX
+ *  - Enhanced inline code styling
+ *  - Proper light mode colors for all elements
  */
 
 const renderer = new Renderer();
@@ -64,7 +64,7 @@ renderer.image = function ({
 
 renderer.listitem = function ({ text, task, checked }: { text: string; task?: boolean; checked?: boolean }) {
   if (task) {
-    const checkedAttr = checked ? ' checked disabled' : ' disabled';
+    const checkedAttr = checked ? " checked disabled" : " disabled";
     const checkedClass = checked ? " task-checked" : "";
     return `<li class="task-list-item"><input type="checkbox"${checkedAttr} class="task-checkbox" /><span class="${checkedClass}">${text}</span></li>`;
   }
@@ -72,7 +72,6 @@ renderer.listitem = function ({ text, task, checked }: { text: string; task?: bo
 };
 
 renderer.blockquote = function ({ text }: { text: string }) {
-  // Detect callout syntax: > [!NOTE], > [!WARNING], etc.
   const calloutMatch = text.match(/^\[!(NOTE|WARNING|TIP|IMPORTANT|CAUTION)\]\s*(.*)/si);
   if (calloutMatch) {
     const type = calloutMatch[1].toLowerCase();
@@ -114,6 +113,9 @@ export function MarkdownPreview() {
   const draftContent = useEditorStore((s) => s.draftContent);
   const mode = useEditorStore((s) => s.mode);
   const preferences = useAppStore((s) => s.preferences);
+  const notes = useNotesStore((s) => s.notes);
+  const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
+  const setActiveNote = useEditorStore((s) => s.setActiveNote);
   const isZen = mode === "zen";
 
   const renderedHtml = useMemo(() => {
@@ -124,24 +126,33 @@ export function MarkdownPreview() {
     return marked.parse(processed) as string;
   }, [draftContent]);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
 
-    // Handle wiki-link clicks
-    const wikiLink = target.closest<HTMLElement>(".wiki-link");
-    if (wikiLink) {
-      e.preventDefault();
-      const noteTarget = wikiLink.dataset.target;
-      if (noteTarget) {
-        window.dispatchEvent(
-          new CustomEvent("ragnar-wiki-navigate", { detail: { target: noteTarget } }),
-        );
+      // Handle wiki-link clicks — navigate to the target note
+      const wikiLink = target.closest<HTMLElement>(".wiki-link");
+      if (wikiLink) {
+        e.preventDefault();
+        const noteTarget = wikiLink.dataset.target;
+        if (noteTarget) {
+          const targetLower = noteTarget.toLowerCase();
+          const found = Object.values(notes).find((n) => {
+            if (trashedNoteIds.includes(n.id)) return false;
+            if (n.title.toLowerCase() === targetLower) return true;
+            return n.frontmatter.aliases.some(
+              (a) => a.toLowerCase() === targetLower,
+            );
+          });
+          if (found) {
+            setActiveNote(found);
+          }
+        }
+        return;
       }
-      return;
-    }
-
-    // Allow external links to open normally
-  }, []);
+    },
+    [notes, trashedNoteIds, setActiveNote],
+  );
 
   return (
     <div

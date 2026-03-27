@@ -1,7 +1,7 @@
 {
   "name": "ragnar-notes",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "A sleek, high-performance macOS note-taking application built with Tauri.",
   "type": "module",
   "scripts": {

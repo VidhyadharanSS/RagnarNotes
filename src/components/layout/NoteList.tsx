@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotesStore } from "@stores/notesStore";
 import { useEditorStore } from "@stores/editorStore";
@@ -25,14 +25,14 @@ import {
 import type { Note } from "@/types";
 
 /**
- * NoteList — Stage 4
+ * NoteList — Stage 5
  *
- * Improvements:
- *  - Tag filter chips at top (click to filter by tag)
- *  - Improved card: gradient left border on active, better excerpt
- *  - Trash bulk-empty action
- *  - Hover inline: pin + trash quick actions
- *  - Sort label cycles: Recent → A–Z → Oldest
+ * Improvements over Stage 4:
+ *  - Keyboard navigation (↑↓ arrows to select, Enter to open)
+ *  - Highlighted matched text in search results
+ *  - Better excerpts with match highlighting
+ *  - Improved card micro-interactions
+ *  - Double-click to toggle pin
  */
 
 type SortMode = "date-desc" | "title" | "date-asc";
@@ -49,13 +49,16 @@ export function NoteList() {
   const trashedNoteIds = useNotesStore((s) => s.trashedNoteIds);
   const pinnedNoteIds = useNotesStore((s) => s.pinnedNoteIds);
   const activeNoteId = useEditorStore((s) => s.activeNoteId);
+  const setActiveNote = useEditorStore((s) => s.setActiveNote);
+  const addRecentNote = useSearchStore((s) => s.addRecentNote);
   const query = useSearchStore((s) => s.query);
   const [sortMode, setSortMode] = useState<SortMode>("date-desc");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [keyboardIdx, setKeyboardIdx] = useState(-1);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const allNotes = Object.values(notes);
 
-  // Collect all unique tags across non-trashed notes
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     allNotes
@@ -75,9 +78,7 @@ export function NoteList() {
         break;
       case "tags":
         filtered = allNotes.filter(
-          (n) =>
-            !trashedNoteIds.includes(n.id) &&
-            n.frontmatter.tags.length > 0,
+          (n) => !trashedNoteIds.includes(n.id) && n.frontmatter.tags.length > 0,
         );
         break;
       default:
@@ -99,7 +100,6 @@ export function NoteList() {
     }
 
     return filtered.sort((a, b) => {
-      // Always pin notes first (in non-trash views)
       if (sidebarRoute !== "trash") {
         const aPinned = pinnedNoteIds.includes(a.id) ? 1 : 0;
         const bPinned = pinnedNoteIds.includes(b.id) ? 1 : 0;
@@ -107,15 +107,9 @@ export function NoteList() {
       }
       if (sortMode === "title") return a.title.localeCompare(b.title);
       if (sortMode === "date-asc") {
-        return (
-          new Date(a.frontmatter.updatedAt).getTime() -
-          new Date(b.frontmatter.updatedAt).getTime()
-        );
+        return new Date(a.frontmatter.updatedAt).getTime() - new Date(b.frontmatter.updatedAt).getTime();
       }
-      return (
-        new Date(b.frontmatter.updatedAt).getTime() -
-        new Date(a.frontmatter.updatedAt).getTime()
-      );
+      return new Date(b.frontmatter.updatedAt).getTime() - new Date(a.frontmatter.updatedAt).getTime();
     });
   }
 
@@ -128,6 +122,46 @@ export function NoteList() {
     tags: "Tags",
     trash: "Trash",
   };
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (filteredNotes.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setKeyboardIdx((i) => Math.min(i + 1, filteredNotes.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setKeyboardIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" && keyboardIdx >= 0) {
+        e.preventDefault();
+        const note = filteredNotes[keyboardIdx];
+        if (note) {
+          setActiveNote(note);
+          addRecentNote(note.id);
+        }
+      }
+    },
+    [filteredNotes, keyboardIdx, setActiveNote, addRecentNote],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Reset keyboard index when filter changes
+  useEffect(() => {
+    setKeyboardIdx(-1);
+  }, [query, tagFilter, sidebarRoute, sortMode]);
+
+  // Scroll keyboard-selected item into view
+  useEffect(() => {
+    if (keyboardIdx < 0 || !listRef.current) return;
+    const items = listRef.current.querySelectorAll("[data-note-item]");
+    items[keyboardIdx]?.scrollIntoView({ block: "nearest" });
+  }, [keyboardIdx]);
 
   const deleteAll = useNotesStore((s) => s.deleteNote);
   function emptyTrash() {
@@ -149,7 +183,6 @@ export function NoteList() {
           {headings[sidebarRoute] ?? "Notes"}
         </h2>
         <div className="flex items-center gap-1.5">
-          {/* Sort toggle */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setSortMode(SORT_LABELS[sortMode].next)}
@@ -160,7 +193,6 @@ export function NoteList() {
             {SORT_LABELS[sortMode].label}
           </motion.button>
 
-          {/* Note count badge */}
           <AnimatePresence mode="wait">
             <motion.span
               key={filteredNotes.length}
@@ -177,7 +209,7 @@ export function NoteList() {
       {/* Search bar */}
       <NoteListSearch />
 
-      {/* Tag filter chips (only in all-notes / tags view) */}
+      {/* Tag filter chips */}
       {(sidebarRoute === "all-notes" || sidebarRoute === "tags") && allTags.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-ragnar-border-subtle px-3 py-1.5">
           {tagFilter && (
@@ -226,7 +258,7 @@ export function NoteList() {
       )}
 
       {/* Notes list */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar" ref={listRef}>
         <AnimatePresence initial={false}>
           {filteredNotes.length === 0 ? (
             <EmptyState route={sidebarRoute} hasQuery={!!query || !!tagFilter} />
@@ -238,7 +270,9 @@ export function NoteList() {
                 isActive={note.id === activeNoteId}
                 isPinned={pinnedNoteIds.includes(note.id)}
                 isTrashed={trashedNoteIds.includes(note.id)}
+                isKeyboardSelected={keyboardIdx === idx}
                 index={idx}
+                searchQuery={query}
               />
             ))
           )}
@@ -254,13 +288,17 @@ function NoteItem({
   isActive,
   isPinned,
   isTrashed,
+  isKeyboardSelected,
   index,
+  searchQuery,
 }: {
   note: Note;
   isActive: boolean;
   isPinned: boolean;
   isTrashed: boolean;
+  isKeyboardSelected: boolean;
   index: number;
+  searchQuery: string;
 }) {
   const setActiveNote = useEditorStore((s) => s.setActiveNote);
   const addRecentNote = useSearchStore((s) => s.addRecentNote);
@@ -277,6 +315,11 @@ function NoteItem({
   function handleClick() {
     setActiveNote(note);
     addRecentNote(note.id);
+  }
+
+  function handleDoubleClick() {
+    pinNote(note.id, !isPinned);
+    toast.info(isPinned ? "Unpinned" : "Pinned to top");
   }
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -323,87 +366,72 @@ function NoteItem({
 
   const contextItems: ContextMenuItem[] = isTrashed
     ? [
-        {
-          id: "restore",
-          label: "Restore Note",
-          icon: <RotateCcw size={13} />,
-          action: handleRestore,
-        },
+        { id: "restore", label: "Restore Note", icon: <RotateCcw size={13} />, action: handleRestore },
         { id: "sep", label: "", separator: true, action: () => {} },
         {
           id: "delete",
           label: "Delete Permanently",
           icon: <Trash2 size={13} />,
           danger: true,
-          action: () => {
-            deleteNote(note.id);
-            toast.warning("Note permanently deleted");
-          },
+          action: () => { deleteNote(note.id); toast.warning("Note permanently deleted"); },
         },
       ]
     : [
-        {
-          id: "open",
-          label: "Open Note",
-          icon: <FileEdit size={13} />,
-          action: handleClick,
-        },
+        { id: "open", label: "Open Note", icon: <FileEdit size={13} />, action: handleClick },
         {
           id: "pin",
           label: isPinned ? "Unpin" : "Pin to Top",
           icon: isPinned ? <PinOff size={13} /> : <Pin size={13} />,
-          action: () => {
-            pinNote(note.id, !isPinned);
-            toast.info(isPinned ? "Unpinned" : "Pinned to top");
-          },
+          action: () => { pinNote(note.id, !isPinned); toast.info(isPinned ? "Unpinned" : "Pinned to top"); },
         },
-        {
-          id: "duplicate",
-          label: "Duplicate",
-          icon: <Copy size={13} />,
-          action: handleDuplicate,
-        },
-        {
-          id: "export",
-          label: "Export…",
-          icon: <Download size={13} />,
-          action: handleExport,
-        },
+        { id: "duplicate", label: "Duplicate", icon: <Copy size={13} />, action: handleDuplicate },
+        { id: "export", label: "Export…", icon: <Download size={13} />, action: handleExport },
         { id: "sep", label: "", separator: true, action: () => {} },
-        {
-          id: "trash",
-          label: "Move to Trash",
-          icon: <Trash2 size={13} />,
-          danger: true,
-          action: handleTrash,
-        },
+        { id: "trash", label: "Move to Trash", icon: <Trash2 size={13} />, danger: true, action: handleTrash },
       ];
 
   const folderName = note.folderId ? folders[note.folderId]?.name : null;
   const wordCount = note.content.split(/\s+/).filter(Boolean).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
-  const excerpt = note.content
-    ? truncate(
-        note.content
-          .replace(/^---[\s\S]*?---\n?/, "")
-          .replace(/#{1,6}\s+/g, "")
-          .replace(/[*_`[\]>~]/g, "")
-          .replace(/\n+/g, " ")
-          .trim(),
-        110,
-      )
-    : "No content yet…";
+  const rawExcerpt = note.content
+    ? note.content
+        .replace(/^---[\s\S]*?---\n?/, "")
+        .replace(/#{1,6}\s+/g, "")
+        .replace(/[*_`[\]>~]/g, "")
+        .replace(/\n+/g, " ")
+        .trim()
+    : "";
+
+  const excerpt = truncate(rawExcerpt, 110) || "No content yet…";
+
+  // Highlight search matches in title
+  function highlightText(text: string, q: string) {
+    if (!q.trim()) return text;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="bg-ragnar-accent/25 text-ragnar-text-primary rounded-sm px-0.5">
+          {text.slice(idx, idx + q.length)}
+        </mark>
+        {text.slice(idx + q.length)}
+      </>
+    );
+  }
 
   return (
     <>
       <motion.div
+        data-note-item
         layout
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, height: 0, paddingTop: 0, paddingBottom: 0 }}
         transition={{ duration: 0.14, delay: Math.min(index * 0.015, 0.06) }}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -413,16 +441,15 @@ function NoteItem({
           "border-l-2 transition-all duration-150",
           isActive
             ? "border-l-ragnar-accent bg-ragnar-accent/6"
-            : "border-l-transparent hover:bg-ragnar-bg-hover hover:border-l-ragnar-text-muted/20",
+            : isKeyboardSelected
+              ? "border-l-ragnar-accent/50 bg-ragnar-bg-hover"
+              : "border-l-transparent hover:bg-ragnar-bg-hover hover:border-l-ragnar-text-muted/20",
         )}
       >
         {/* Title + quick actions */}
         <div className="mb-0.5 flex items-start gap-1.5">
           {isPinned && (
-            <Pin
-              size={9}
-              className="mt-1 flex-shrink-0 text-ragnar-accent rotate-45"
-            />
+            <Pin size={9} className="mt-1 flex-shrink-0 text-ragnar-accent rotate-45" />
           )}
           <h3
             className={cn(
@@ -430,7 +457,7 @@ function NoteItem({
               isActive ? "text-ragnar-accent" : "text-ragnar-text-primary",
             )}
           >
-            {note.title || "Untitled"}
+            {highlightText(note.title || "Untitled", searchQuery)}
           </h3>
 
           {/* Hover quick actions */}
@@ -452,9 +479,7 @@ function NoteItem({
                   }}
                   className={cn(
                     "rounded p-1 transition-colors",
-                    isPinned
-                      ? "text-ragnar-accent"
-                      : "text-ragnar-text-muted hover:text-ragnar-accent",
+                    isPinned ? "text-ragnar-accent" : "text-ragnar-text-muted hover:text-ragnar-accent",
                   )}
                   title={isPinned ? "Unpin" : "Pin"}
                 >
@@ -486,36 +511,25 @@ function NoteItem({
             {formatRelativeTime(note.frontmatter.updatedAt)}
           </span>
           <span className="text-[10px] text-ragnar-text-muted/60">·</span>
-          <span className="text-[10px] text-ragnar-text-muted/80">
-            {readingTime}m read
-          </span>
+          <span className="text-[10px] text-ragnar-text-muted/80">{readingTime}m read</span>
           {folderName && (
             <span className="rounded-full bg-ragnar-accent/8 px-2 py-0.5 text-[10px] text-ragnar-accent/80">
               {folderName}
             </span>
           )}
           {note.frontmatter.tags.slice(0, 2).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-ragnar-bg-tertiary px-2 py-0.5 text-[10px] text-ragnar-text-muted"
-            >
+            <span key={tag} className="rounded-full bg-ragnar-bg-tertiary px-2 py-0.5 text-[10px] text-ragnar-text-muted">
               #{tag}
             </span>
           ))}
           {note.frontmatter.tags.length > 2 && (
-            <span className="text-[10px] text-ragnar-text-muted/60">
-              +{note.frontmatter.tags.length - 2}
-            </span>
+            <span className="text-[10px] text-ragnar-text-muted/60">+{note.frontmatter.tags.length - 2}</span>
           )}
         </div>
       </motion.div>
 
       {contextMenu && (
-        <ContextMenu
-          items={contextItems}
-          position={contextMenu}
-          onClose={() => setContextMenu(null)}
-        />
+        <ContextMenu items={contextItems} position={contextMenu} onClose={() => setContextMenu(null)} />
       )}
     </>
   );
@@ -562,17 +576,8 @@ function NoteListSearch() {
 }
 
 /* ── Empty states ── */
-function EmptyState({
-  route,
-  hasQuery,
-}: {
-  route: string;
-  hasQuery: boolean;
-}) {
-  const messages: Record<
-    string,
-    { title: string; body: string; icon: React.ReactNode }
-  > = {
+function EmptyState({ route, hasQuery }: { route: string; hasQuery: boolean }) {
+  const messages: Record<string, { title: string; body: string; icon: React.ReactNode }> = {
     "all-notes": {
       title: "No notes yet",
       body: "Create your first note to get started",
@@ -580,7 +585,7 @@ function EmptyState({
     },
     favorites: {
       title: "No pinned notes",
-      body: "Right-click a note to pin it",
+      body: "Right-click or double-click a note to pin it",
       icon: <Pin size={26} className="text-ragnar-text-muted" />,
     },
     tags: {
@@ -616,9 +621,7 @@ function EmptyState({
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ragnar-bg-tertiary/50">
         {msg.icon}
       </div>
-      <p className="text-[13px] font-semibold text-ragnar-text-secondary">
-        {msg.title}
-      </p>
+      <p className="text-[13px] font-semibold text-ragnar-text-secondary">{msg.title}</p>
       <p className="max-w-[200px] text-[12px] text-ragnar-text-muted">{msg.body}</p>
     </motion.div>
   );
