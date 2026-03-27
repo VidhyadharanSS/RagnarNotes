@@ -54,9 +54,9 @@ export function isSafeUrl(url: string): boolean {
   }
 }
 
-/** Sanitize a file name for safe file system usage */
 export function sanitizeFileName(name: string): string {
   return name
+    // eslint-disable-next-line no-control-regex
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
