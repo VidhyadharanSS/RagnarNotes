@@ -1,25 +1,22 @@
 import { useEffect } from "react";
 import { useAppStore } from "@stores/appStore";
+import { getFontCssValue, getAccentColor } from "@utils/fonts";
 
 /**
- * useTheme — Stage 4 (Fixed)
+ * useTheme — v1.1.0
  *
- * Subscribes to the theme preference in appStore and applies
- * the correct CSS class + color-scheme to <html> immediately.
- *
- * FIX: This hook MUST be called in App.tsx at the root level.
- * Previous bug: it was never called, so theme changes had no effect.
- *
- * Features:
- *  1. Adds/removes "dark" / "light" class on <html>
- *  2. Sets color-scheme on <html> (native scrollbars, inputs)
- *  3. Updates <meta name="color-scheme"> for browser chrome
- *  4. Listens to system preference changes when theme === "system"
- *  5. Persists the resolved theme to localStorage for instant apply on reload
+ * Applies:
+ *  - dark/light class on <html>
+ *  - Custom font family via --font-sans CSS variable
+ *  - Accent color CSS variables
+ *  - Editor max-width
  */
 export function useTheme() {
   const theme = useAppStore((s) => s.preferences.theme);
+  const fontFamily = useAppStore((s) => s.preferences.fontFamily);
+  const accentColor = useAppStore((s) => s.preferences.accentColor);
 
+  // ── Apply theme (dark/light) ──
   useEffect(() => {
     const root = document.documentElement;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
@@ -52,4 +49,35 @@ export function useTheme() {
 
     applyDark(theme === "dark");
   }, [theme]);
+
+  // ── Apply font family ──
+  useEffect(() => {
+    const cssValue = getFontCssValue(fontFamily);
+    document.documentElement.style.setProperty("--font-sans", cssValue);
+    document.body.style.fontFamily = cssValue;
+  }, [fontFamily]);
+
+  // ── Apply accent color ──
+  useEffect(() => {
+    const root = document.documentElement;
+    const accent = getAccentColor(accentColor);
+    const isDark = root.classList.contains("dark");
+
+    const accentMain = isDark ? accent.dark : accent.light;
+    const accentHover = isDark ? accent.darkHover : accent.lightHover;
+    const accentMuted = isDark ? accent.darkMuted : accent.lightMuted;
+
+    root.style.setProperty("--ragnar-accent", accentMain);
+    root.style.setProperty("--ragnar-accent-hover", accentHover);
+    root.style.setProperty("--ragnar-accent-muted", accentMuted);
+
+    // Sidebar active uses muted variant
+    root.style.setProperty("--ragnar-sidebar-active", accentMuted);
+
+    // Selection color
+    const style = document.getElementById("ragnar-selection-style") || document.createElement("style");
+    style.id = "ragnar-selection-style";
+    style.textContent = `::selection { background: ${accentMuted}; }`;
+    if (!style.parentNode) document.head.appendChild(style);
+  }, [accentColor, theme]);
 }

@@ -5,16 +5,16 @@
 </p>
 
 <p align="center">
-  <strong>A sleek, local-first Markdown note-taking app for macOS.</strong>
-  <br/>
+  <strong>A sleek, local-first Markdown note-taking app for macOS.</strong><br/>
   Built with Tauri + React. No cloud. No sync. Your notes, your machine.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0-0a84ff?style=flat-square" />
+  <img src="https://img.shields.io/badge/Version-1.1.0-0a84ff?style=flat-square" />
   <img src="https://img.shields.io/badge/TypeScript-0%20Errors-30d158?style=flat-square&logo=typescript" />
   <img src="https://img.shields.io/badge/Tests-132%20Passed-30d158?style=flat-square" />
   <img src="https://img.shields.io/badge/Tauri-1.x-FFC131?style=flat-square&logo=tauri" />
+  <img src="https://img.shields.io/badge/Platform-macOS-000000?style=flat-square&logo=apple" />
   <img src="https://img.shields.io/badge/License-MIT-a1a1a6?style=flat-square" />
 </p>
 
@@ -22,90 +22,135 @@
 
 ## 📦 Installation (macOS)
 
-### Option A: Download the Release
+### Option A — Download the DMG Release *(Easiest)*
 
-1. Go to [**Releases**](https://github.com/VidhyadharanSS/RagnarNotes/releases)
-2. Download `Ragnar.Notes.dmg` (macOS Apple Silicon / Intel)
+1. Go to [**Releases →**](https://github.com/VidhyadharanSS/RagnarNotes/releases)
+2. Download **`Ragnar.Notes_1.1.0_aarch64.dmg`** (Apple Silicon) or **`_x64.dmg`** (Intel)
 3. Open the `.dmg` file
-4. Drag **Ragnar Notes** into your `/Applications` folder
-5. Open from Applications — if macOS shows a security warning:
-   - Go to **System Settings → Privacy & Security**
-   - Click **"Open Anyway"** next to the Ragnar Notes warning
-6. Done! 🎉
+4. **Drag "Ragnar Notes"** into your `/Applications` folder
+5. Double-click to launch
 
-### Option B: Build from Source
+> **macOS Gatekeeper warning?**  
+> Go to **System Settings → Privacy & Security → scroll down → click "Open Anyway"**  
+> This is expected for apps not distributed via the App Store.
+
+---
+
+### Option B — Build from Source
 
 **Prerequisites:**
-- **macOS** 12+ (Monterey or later)
-- **Node.js** ≥ 18 — [Download](https://nodejs.org)
-- **Rust** — Install via `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Xcode Command Line Tools** — `xcode-select --install`
 
-**Steps:**
+| Tool | Version | Install |
+|------|---------|---------|
+| macOS | 12+ (Monterey) | — |
+| Node.js | ≥ 18 | [nodejs.org](https://nodejs.org) |
+| Rust | stable | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Xcode CLI | latest | `xcode-select --install` |
+
+**Build steps:**
 
 ```bash
-# 1. Clone the repository
+# 1. Clone
 git clone https://github.com/VidhyadharanSS/RagnarNotes.git
 cd RagnarNotes
 
-# 2. Install dependencies
+# 2. Install frontend dependencies
 npm install
 
-# 3. Build the macOS app (.dmg + .app)
+# 3. Build the macOS app
 npm run tauri build
 
-# 4. The built app will be at:
-#    src-tauri/target/release/bundle/dmg/Ragnar Notes_1.0.0_aarch64.dmg
-#    src-tauri/target/release/bundle/macos/Ragnar Notes.app
+# Output files:
+# ▸ src-tauri/target/release/bundle/dmg/Ragnar Notes_1.1.0_aarch64.dmg
+# ▸ src-tauri/target/release/bundle/macos/Ragnar Notes.app
 ```
 
-### Option C: Development Mode (Web Preview)
+Open the `.dmg` and drag to **Applications**, or double-click `Ragnar Notes.app` directly.
+
+---
+
+### Option C — Development Mode
 
 ```bash
-git clone https://github.com/VidhyadharanSS/RagnarNotes.git
-cd RagnarNotes
-npm install
-npm run dev        # → http://localhost:1420
-```
+# Web preview (browser, no native shell)
+npm run dev           # → http://localhost:1420
 
-### Option D: Development Mode (Tauri Window)
-
-```bash
-npm run tauri dev  # Spawns native macOS window with hot-reload
+# Native window with hot-reload
+npm run tauri dev     # spawns real macOS window
 ```
 
 ---
 
-## ✨ Features
+## ✨ What's New in v1.1.0
 
-| Category | Feature | Description |
-|----------|---------|-------------|
-| **Editor** | Markdown editing | Full GFM support — tables, task lists, code blocks |
-| **Editor** | Syntax highlighting | 150+ languages via highlight.js |
-| **Editor** | Split view | Edit + Preview side-by-side (`⌘⇧S`) |
-| **Editor** | Zen mode | Distraction-free writing (`⌘.`) |
-| **Editor** | Smart Enter | Auto-continues lists, tasks, blockquotes |
-| **Editor** | Wiki-links | `[[Note Title]]` — click to navigate |
-| **Editor** | Callout blocks | `> [!NOTE]`, `> [!WARNING]`, `> [!TIP]` |
-| **Notes** | Pin notes | Float pinned notes to top |
-| **Notes** | Tags & filter | Filter by tag chips in note list |
-| **Notes** | Trash & restore | Soft-delete with undo; Empty Trash |
-| **Notes** | **Bulk select** | Multi-select for bulk trash/delete/export |
-| **Notes** | **Import .md files** | Drop or browse to import Markdown files |
-| **Notes** | Duplicate | One-click copy any note |
-| **Export** | PDF export | Theme-aware — matches dark/light mode |
-| **Export** | Markdown export | Raw `.md` download |
-| **Export** | HTML export | Standalone web page with embedded styles |
-| **Export** | **Bulk export** | Select multiple notes → export all |
-| **Storage** | **Local persistence** | All notes saved to localStorage — survives reload |
-| **Storage** | **Storage manager** | View usage, import/export, clear data |
-| **UI** | Dark / Light / Auto | Full theme support with instant switching |
-| **UI** | Command palette | `⌘K` — search notes, run commands |
-| **UI** | Note info panel | Outline, backlinks, metadata, history |
-| **UI** | Word goal | Set daily writing goals with progress ring |
-| **UI** | Reading progress | Scroll progress bar in preview mode |
-| **Security** | XSS prevention | HTML sanitization, script removal |
-| **Testing** | 132 unit tests | Stores, utils, hooks — all covered |
+### 🎨 Font Picker — 14 Fonts in 3 Categories
+
+Open **Settings → Typography** to choose your writing font:
+
+| Category | Fonts |
+|----------|-------|
+| **Sans-serif** | Inter, Geist, DM Sans, Nunito, Source Sans 3, IBM Plex Sans, Space Grotesk, System Default |
+| **Serif** | Merriweather, Lora, Playfair Display, Crimson Pro |
+| **Monospace** | JetBrains Mono, Fira Code |
+
+### 🎨 10 Accent Colors
+
+Blue · Purple · Indigo · Green · Teal · Cyan · Orange · Rose · Pink · Amber
+
+### 🏷️ Note Color Labels *(New UI Feature)*
+
+Right-click any note → **Color Label** → pick from 8 colors.
+- A colored dot appears next to the note title
+- The note row gets a subtle color tint
+- Hover actions include a quick color picker button
+
+### 👁️ Hover Preview Cards *(New UI Feature)*
+
+Hover over a note for 600ms → a floating preview card appears showing:
+- Note title + excerpt
+- Reading time, tags, last modified time
+
+### 🌟 Animated Welcome Screen *(Enhanced UI Feature)*
+
+- Animated concentric rings behind the app icon
+- Glowing accent dot animation
+- Feature highlight cards (Markdown-first, Local & Private, Instant Search)
+- Gradient-tinted New Note button
+
+---
+
+## 🎛️ All Features
+
+| Category | Feature |
+|----------|---------|
+| **Editor** | Full GFM Markdown — tables, task lists, code blocks, wiki-links |
+| **Editor** | Syntax highlighting (150+ languages) |
+| **Editor** | Split view (Edit + Preview side-by-side) |
+| **Editor** | Zen / Focus mode — distraction-free writing |
+| **Editor** | Smart Enter — auto-continues lists, tasks, blockquotes |
+| **Editor** | Callout blocks `> [!NOTE]`, `> [!WARNING]`, `> [!TIP]` |
+| **Notes** | Pin notes — float to top |
+| **Notes** | **Color labels** — 8 colors, visual organization |
+| **Notes** | **Hover preview** — floating card on 600ms hover |
+| **Notes** | Tags & tag filter chips |
+| **Notes** | Bulk select — multi-select for bulk trash/delete/export |
+| **Notes** | Import `.md` files — browse or drag-drop |
+| **Notes** | Duplicate notes |
+| **Export** | PDF, Markdown, HTML export |
+| **Export** | Bulk export — select multiple notes → export all |
+| **Storage** | Full local persistence (localStorage, survives reload) |
+| **Storage** | Storage manager — view usage, import/export, clear data |
+| **Settings** | **14 font families** (sans, serif, mono) |
+| **Settings** | **10 accent colors** |
+| **Settings** | Font size (12–22px), Line height (1.3–2.4) |
+| **Settings** | Editor width, compact mode, spell check, word count |
+| **Settings** | Auto-save delay (0.5s–10s) |
+| **UI** | Dark / Light / Auto theme |
+| **UI** | Command palette (`⌘K`) |
+| **UI** | Note info panel (outline, backlinks, metadata, history) |
+| **UI** | Word goal widget with progress ring |
+| **UI** | Reading progress bar |
+| **Security** | XSS prevention, HTML sanitization |
 
 ---
 
@@ -113,7 +158,7 @@ npm run tauri dev  # Spawns native macOS window with hot-reload
 
 | Shortcut | Action |
 |----------|--------|
-| `⌘K` | Command Palette |
+| `⌘K` | Command Palette / Search |
 | `⌘N` | New Note |
 | `⌘/` | Toggle Sidebar |
 | `⌘.` | Zen / Focus Mode |
@@ -125,61 +170,60 @@ npm run tauri dev  # Spawns native macOS window with hot-reload
 | `⌘I` | *Italic* |
 | `` ⌘` `` | `Inline Code` |
 | `⌘⇧X` | ~~Strikethrough~~ |
-| `↑↓` | Navigate notes |
-| `Enter` | Open selected note |
-| `Esc` | Close any overlay |
+| `↑↓` | Navigate note list |
+| `Enter` | Open keyboard-focused note |
+| `Esc` | Close any modal/panel |
+
+---
+
+## 🧪 Tests
+
+```bash
+npm test              # run all 132 tests
+npm run test:watch    # watch mode
+npm run test:coverage # with coverage report
+```
+
+**132 tests across 9 files:**
+
+| File | Tests |
+|------|-------|
+| `utils/sanitize.test.ts` | 26 |
+| `utils/format.test.ts` | 22 |
+| `utils/markdown.test.ts` | 19 |
+| `utils/keyboard.test.ts` | 14 |
+| `stores/notesStore.test.ts` | 17 |
+| `stores/editorStore.test.ts` | 12 |
+| `stores/appStore.test.ts` | 9 |
+| `utils/cn.test.ts` | 8 |
+| `stores/searchStore.test.ts` | 5 |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-ragnar-notes/
-├── src/                          # React frontend
+RagnarNotes/
+├── src/
 │   ├── components/
-│   │   ├── editor/               # Editor, toolbar, preview, status bar
-│   │   ├── features/             # Command palette, export, settings, storage
-│   │   ├── layout/               # Sidebar, note list, editor pane, title bar
-│   │   ├── onboarding/           # Vault picker (first launch)
-│   │   └── ui/                   # Toast, tooltip, context menu, theme toggle
-│   ├── hooks/                    # Custom React hooks
-│   ├── stores/                   # Zustand state management (persisted)
-│   ├── utils/                    # Format, sanitize, keyboard, markdown, export
-│   ├── lib/                      # Tauri bridge, seed data
-│   ├── styles/                   # Global CSS, syntax highlighting
-│   ├── types/                    # TypeScript type definitions
-│   └── __tests__/                # Vitest test suite (132 tests)
-├── src-tauri/                    # Rust backend (Tauri)
-│   ├── src/
-│   │   ├── main.rs               # Entry point
-│   │   ├── commands/             # File system + app commands
-│   │   ├── models.rs             # Data models
-│   │   └── error.rs              # Error types
-│   ├── Cargo.toml                # Rust dependencies
-│   └── tauri.conf.json           # Tauri configuration
-├── package.json                  # v1.0.0
-├── vitest.config.ts              # Test configuration
-└── tailwind.config.ts            # Tailwind + custom theme
+│   │   ├── editor/         MarkdownEditor, EditorToolbar, MarkdownPreview, StatusBar
+│   │   ├── features/       CommandPalette, ExportModal, BulkExportModal,
+│   │   │                   SettingsPanel, StorageManager, NoteInfoPanel, …
+│   │   ├── layout/         Sidebar, NoteList, EditorPane, TitleBar
+│   │   ├── onboarding/     VaultPicker
+│   │   └── ui/             Toast, Tooltip, ContextMenu, HoverPreview,
+│   │                       NoteColorPicker, ThemeToggle, …
+│   ├── hooks/              useTheme, useAutoSave, useKeyboardShortcut, …
+│   ├── stores/             appStore, editorStore, notesStore, searchStore
+│   ├── utils/              format, sanitize, keyboard, markdown, fonts, exportPdf
+│   ├── lib/                seedData, tauri bridge
+│   ├── styles/             globals.css, highlight.css
+│   └── types/              index.ts (all TypeScript types)
+├── src-tauri/              Rust / Tauri backend
+│   └── src/commands/       fs.rs, app.rs
+├── package.json            v1.1.0
+└── tauri.conf.json         macOS bundle config
 ```
-
----
-
-## 🧪 Running Tests
-
-```bash
-# Run all 132 tests
-npm test
-
-# Watch mode
-npm run test:watch
-
-# With coverage report
-npm run test:coverage
-```
-
-**Test coverage:**
-- `src/utils/` — format, sanitize, keyboard, markdown, cn (89 tests)
-- `src/stores/` — appStore, editorStore, notesStore, searchStore (43 tests)
 
 ---
 
@@ -187,7 +231,7 @@ npm run test:coverage
 
 | Layer | Technology |
 |-------|-----------|
-| Desktop | Tauri 1.x (Rust) |
+| Desktop shell | Tauri 1.x (Rust) |
 | Frontend | React 18 + TypeScript 5 |
 | Styling | Tailwind CSS 3 + CSS custom properties |
 | Animations | Framer Motion 11 |
@@ -195,6 +239,7 @@ npm run test:coverage
 | Markdown | `marked` (GFM) + custom renderer |
 | Syntax | `highlight.js` (150+ languages) |
 | PDF | `html2pdf.js` |
+| Fonts | Google Fonts (Inter, Geist, Merriweather, …) |
 | Testing | Vitest + Testing Library |
 | Build | Vite 5 |
 

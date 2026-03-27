@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
-import type { Note, NoteId, Folder, FolderId } from "@/types";
+import type { Note, NoteId, Folder, FolderId, NoteColor } from "@/types";
 
 /* ─────────────────────────────────────────────────────────────
  * Notes Store — Stage 6 (Final)
@@ -17,6 +17,7 @@ interface NotesState {
   rootFolderIds: FolderId[];
   trashedNoteIds: NoteId[];
   pinnedNoteIds: NoteId[];
+  noteColors: Record<NoteId, NoteColor>;
 
   // ── Loading ──
   isLoading: boolean;
@@ -24,6 +25,7 @@ interface NotesState {
   _hasHydrated: boolean;
 
   // ── Actions: Notes ──
+  colorNote: (id: NoteId, color: NoteColor) => void;
   setNotes: (notes: Note[]) => void;
   upsertNote: (note: Note) => void;
   deleteNote: (id: NoteId) => void;
@@ -62,11 +64,23 @@ export const useNotesStore = create<NotesState>()(
         rootFolderIds: [],
         trashedNoteIds: [],
         pinnedNoteIds: [],
+        noteColors: {},
         isLoading: false,
         vaultPath: "",
         _hasHydrated: false,
 
         // ── Note actions ──
+        colorNote: (id, color) =>
+          set(
+            (s) => ({
+              noteColors: color === 'none'
+                ? Object.fromEntries(Object.entries(s.noteColors).filter(([k]) => k !== id))
+                : { ...s.noteColors, [id]: color },
+            }),
+            false,
+            'colorNote',
+          ),
+
         setNotes: (notes) =>
           set(
             { notes: Object.fromEntries(notes.map((n) => [n.id, n])) },
@@ -240,6 +254,7 @@ export const useNotesStore = create<NotesState>()(
               rootFolderIds: [],
               trashedNoteIds: [],
               pinnedNoteIds: [],
+              noteColors: {},
               vaultPath: "",
             },
             false,

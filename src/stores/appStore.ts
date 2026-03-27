@@ -3,13 +3,10 @@ import { devtools, persist } from "zustand/middleware";
 import type { SidebarRoute, AppPreferences } from "@/types";
 
 /**
- * App Store — Stage 4
+ * App Store — v1.1.0
  *
- * Changes vs Stage 3:
- *  - Added `persist` middleware so theme & preferences survive page reload
- *  - Added `isExportOpen` and `isSettingsOpen` flags (managed in App.tsx via events)
- *  - Added `sidebarWidth` for resizable sidebar (future use)
- *  - Added `resetPreferences` action
+ * Changes:
+ *  - Added fontFamily, accentColor, editorMaxWidth, showWordCount, compactMode to preferences
  */
 
 interface AppState {
@@ -40,6 +37,11 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
   spellCheck: true,
   vaultPath: "",
   autoSaveIntervalMs: 2000,
+  fontFamily: "inter",
+  accentColor: "blue",
+  editorMaxWidth: 740,
+  showWordCount: true,
+  compactMode: false,
 };
 
 export const useAppStore = create<AppState>()(
@@ -83,9 +85,8 @@ export const useAppStore = create<AppState>()(
           set({ preferences: DEFAULT_PREFERENCES }, false, "resetPreferences"),
       }),
       {
-        name: "ragnar-app-store", // localStorage key
+        name: "ragnar-app-store",
         partialize: (s) => ({
-          // Only persist these fields (not transient UI state)
           isSidebarVisible: s.isSidebarVisible,
           sidebarRoute: s.sidebarRoute,
           preferences: s.preferences,

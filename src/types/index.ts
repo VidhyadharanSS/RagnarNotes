@@ -1,47 +1,41 @@
 /* ─────────────────────────────────────────────────────────────
- * Ragnar Notes — Core Type Definitions
+ * Ragnar Notes — Core Type Definitions  v1.1.0
  * ───────────────────────────────────────────────────────────── */
 
-/** Unique identifier for notes and folders (UUID v4). */
 export type NoteId = string;
 export type FolderId = string;
 
-/** YAML frontmatter metadata attached to every note. */
 export interface NoteFrontmatter {
   title: string;
-  createdAt: string; // ISO 8601
-  updatedAt: string; // ISO 8601
+  createdAt: string;
+  updatedAt: string;
   tags: string[];
   pinned: boolean;
   aliases: string[];
-  [key: string]: unknown; // extensible
+  [key: string]: unknown;
 }
 
-/** Represents a single Markdown note. */
 export interface Note {
   id: NoteId;
   title: string;
-  content: string; // raw Markdown body (without frontmatter)
+  content: string;
   frontmatter: NoteFrontmatter;
-  filePath: string; // absolute path on disk
+  filePath: string;
   folderId: FolderId;
   isUnsaved: boolean;
 }
 
-/** Represents a folder in the note hierarchy. */
 export interface Folder {
   id: FolderId;
   name: string;
-  path: string; // absolute path on disk
+  path: string;
   parentId: FolderId | null;
   children: FolderId[];
   isExpanded: boolean;
 }
 
-/** The three distinct editor modes. */
 export type EditorMode = "edit" | "readonly" | "zen";
 
-/** A single command exposed in the Cmd+K palette. */
 export interface PaletteCommand {
   id: string;
   label: string;
@@ -51,10 +45,8 @@ export interface PaletteCommand {
   action: () => void;
 }
 
-/** Sidebar navigation routes. */
 export type SidebarRoute = "all-notes" | "favorites" | "tags" | "trash";
 
-/** Search result hit. */
 export interface SearchResult {
   noteId: NoteId;
   title: string;
@@ -62,7 +54,6 @@ export interface SearchResult {
   matchPositions: Array<{ start: number; end: number }>;
 }
 
-/** Asset file metadata. */
 export interface Asset {
   id: string;
   fileName: string;
@@ -72,12 +63,47 @@ export interface Asset {
   linkedNoteIds: NoteId[];
 }
 
-/** Application-level preferences. */
+export type FontFamily =
+  | "inter"
+  | "system"
+  | "merriweather"
+  | "lora"
+  | "crimson-pro"
+  | "source-sans"
+  | "ibm-plex"
+  | "space-grotesk"
+  | "jetbrains-mono"
+  | "fira-code"
+  | "geist"
+  | "nunito"
+  | "dm-sans"
+  | "playfair";
+
+export type AccentColor =
+  | "blue"
+  | "purple"
+  | "indigo"
+  | "green"
+  | "teal"
+  | "orange"
+  | "rose"
+  | "amber"
+  | "pink"
+  | "cyan";
+
 export interface AppPreferences {
   theme: "dark" | "light" | "system";
   fontSize: number;
   lineHeight: number;
   spellCheck: boolean;
-  vaultPath: string; // root directory for all notes
+  vaultPath: string;
   autoSaveIntervalMs: number;
+  fontFamily: FontFamily;
+  accentColor: AccentColor;
+  editorMaxWidth: number;
+  showWordCount: boolean;
+  compactMode: boolean;
 }
+
+/** Note label colors for visual organization */
+export type NoteColor = "none" | "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink";
